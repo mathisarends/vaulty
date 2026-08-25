@@ -13,12 +13,12 @@ inside a locked-down Docker container.
 | `vaulty/sandbox.py` | `DockerSandbox`: read-only rootfs, no network, workspace bind-mounted at `/workspace` |
 | `vaulty/tools.py` | `Dependencies` provider + `read_file`, `write_file`, `edit_file`, `list_dir`, `glob`, `grep`, `bash` |
 | `vaulty/agent.py` | The loop: stream → run tool calls → feed results back → repeat; emits `TextDelta`, `ToolStarted`, `ToolFinished`, `TurnEnded` |
-| `vaulty/main.py` | Terminal chat: streams the answer live and prints every tool call with its result |
+| `main.py` | Terminal chat: streams the answer live and prints every tool call with its result |
 
 ## Usage
 
 ```bash
-uv run vaulty --root .
+uv run python main.py --root .
 ```
 
 ```text
