@@ -1,5 +1,5 @@
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path, PurePosixPath
 
@@ -54,7 +54,7 @@ def build_sandbox(
 async def open_sandbox(
     root: str | os.PathLike[str],
     **kwargs: object,
-) -> AsyncIterator[DockerSandbox]:
+) -> AsyncGenerator[DockerSandbox]:
     sandbox = build_sandbox(root, **kwargs)  # type: ignore[arg-type]
     async with sandbox:
         yield sandbox

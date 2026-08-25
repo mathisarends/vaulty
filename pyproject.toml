@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-vaulty = "vaulty:main"
+vaulty = "vaulty.main:main"
 
 [dependency-groups]
 dev = [

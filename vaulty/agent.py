@@ -1,12 +1,15 @@
 import json
 import logging
-from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 
 from agenttoolkit import Tools, ToolSchemaFormat
 from llmify import (
     AssistantMessage,
     ChatModel,
     Message,
+    StreamEnd,
+    StreamTextDelta,
     SystemMessage,
     ToolCall,
     ToolResultMessage,
@@ -29,11 +32,30 @@ finished -- do not narrate what you are about to do.
 
 
 @dataclass(slots=True)
-class AgentResult:
+class TextDelta:
+    text: str
+
+
+@dataclass(slots=True)
+class ToolStarted:
+    name: str
+    arguments: dict
+
+
+@dataclass(slots=True)
+class ToolFinished:
+    name: str
+    result: str
+
+
+@dataclass(slots=True)
+class TurnEnded:
     text: str
     steps: int
-    messages: list[Message] = field(default_factory=list)
     stopped_early: bool = False
+
+
+type AgentEvent = TextDelta | ToolStarted | ToolFinished | TurnEnded
 
 
 class Agent:
@@ -49,57 +71,61 @@ class Agent:
             raise ValueError("max_steps must be at least 1")
         self._llm = llm
         self._tools = tools
-        self._system_prompt = system_prompt
         self._max_steps = max_steps
+        self._messages: list[Message] = [SystemMessage(content=system_prompt)]
 
-    async def run(self, task: str) -> AgentResult:
-        messages: list[Message] = [
-            SystemMessage(content=self._system_prompt),
-            UserMessage(content=task),
-        ]
+    @property
+    def messages(self) -> list[Message]:
+        return self._messages
+
+    async def run(self, task: str) -> AsyncIterator[AgentEvent]:
+        self._messages.append(UserMessage(content=task))
         schemas = self._tools.get_schema(ToolSchemaFormat.OPENAI)
 
         for step in range(1, self._max_steps + 1):
-            response = await self._llm.invoke(messages, tools=schemas)
-            messages.append(
+            end: StreamEnd | None = None
+            async for event in self._llm.stream(self._messages, tools=schemas):
+                if isinstance(event, StreamTextDelta):
+                    yield TextDelta(event.delta)
+                elif isinstance(event, StreamEnd):
+                    end = event
+            if end is None:
+                raise RuntimeError("stream ended without a final event")
+
+            self._messages.append(
                 AssistantMessage(
-                    content=response.completion or None,
-                    tool_calls=response.tool_calls,
+                    content=end.completion or None,
+                    tool_calls=end.tool_calls,
                 )
             )
 
-            if not response.tool_calls:
-                return AgentResult(
-                    text=response.completion,
-                    steps=step,
-                    messages=messages,
+            if not end.tool_calls:
+                yield TurnEnded(text=end.completion, steps=step)
+                return
+
+            for call in end.tool_calls:
+                name = call.function.name
+                arguments, error = _parse_arguments(call)
+                yield ToolStarted(name=name, arguments=arguments)
+                result = error or await self._call_tool(name, arguments)
+                yield ToolFinished(name=name, result=result)
+                self._messages.append(
+                    ToolResultMessage(tool_call_id=call.id, content=result)
                 )
 
-            for call in response.tool_calls:
-                messages.append(
-                    ToolResultMessage(
-                        tool_call_id=call.id,
-                        content=await self._call_tool(call),
-                    )
-                )
+        yield TurnEnded(text="", steps=self._max_steps, stopped_early=True)
 
-        return AgentResult(
-            text=f"Stopped after {self._max_steps} steps without a final answer.",
-            steps=self._max_steps,
-            messages=messages,
-            stopped_early=True,
-        )
-
-    async def _call_tool(self, call: ToolCall) -> str:
-        name = call.function.name
-        try:
-            arguments = json.loads(call.function.arguments or "{}")
-        except json.JSONDecodeError as error:
-            return f"Invalid JSON arguments for '{name}': {error}"
-
+    async def _call_tool(self, name: str, arguments: dict) -> str:
         logger.info("[agent] %s(%s)", name, arguments)
         try:
             result = await self._tools.execute(name, arguments)
         except Exception as error:  # surfaced to the model, not the caller
             return f"Tool '{name}' failed: {error}"
         return result if isinstance(result, str) else json.dumps(result, default=str)
+
+
+def _parse_arguments(call: ToolCall) -> tuple[dict, str | None]:
+    try:
+        return json.loads(call.function.arguments or "{}"), None
+    except json.JSONDecodeError as error:
+        return {}, f"Invalid JSON arguments for '{call.function.name}': {error}"
