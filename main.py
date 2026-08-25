@@ -8,11 +8,13 @@ from agenttoolkit.builtins.fs import LocalWorkspace
 from vaulty.agent import (
     Agent,
     ContextCompacted,
+    SystemPrompt,
     TextDelta,
     ToolFinished,
     ToolStarted,
     TurnEnded,
 )
+from vaulty.agents import open_agents_home
 from vaulty.config import (
     DEFAULT_CONFIG_PATH,
     LEGACY_CONFIG_PATH,
@@ -90,9 +92,15 @@ async def _turn(agent: Agent, task: str) -> None:
 
 async def _main(config: Config) -> None:
     workspace = LocalWorkspace(config.root)
+    home = open_agents_home(Path(workspace.root), config.agents)
     async with open_sandbox(workspace.root, config.sandbox) as sandbox:
-        tools = build_tools(Dependencies(workspace, sandbox))
-        agent = Agent(build_llm(config.llm), tools, compaction=config.compaction)
+        tools = build_tools(Dependencies(workspace, sandbox, home.skills))
+        agent = Agent(
+            build_llm(config.llm),
+            tools,
+            system_prompt=SystemPrompt(home),
+            compaction=config.compaction,
+        )
         await chat(agent)
 
 

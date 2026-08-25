@@ -1,11 +1,16 @@
+from pathlib import Path
+
 from agenttoolkit import (
     CallLoggingMiddleware,
     DependencyProvider,
     ErrorBoundaryMiddleware,
     Inject,
     OutputBudget,
+    Skills,
+    ToolContext,
     Tools,
     provide,
+    provided,
 )
 from agenttoolkit.builtins.fs import Workspace
 from agenttoolkit.builtins.shell import CommandRunner
@@ -18,9 +23,15 @@ GREP_SCAN_LIMIT = GREP_LIMIT * 5
 
 
 class Dependencies(DependencyProvider):
-    def __init__(self, workspace: Workspace, sandbox: CommandRunner) -> None:
+    def __init__(
+        self,
+        workspace: Workspace,
+        sandbox: CommandRunner,
+        skills: Skills | None = None,
+    ) -> None:
         self._workspace = workspace
         self._sandbox = sandbox
+        self._skills = skills
 
     @provide
     def workspace(self) -> Workspace:
@@ -30,6 +41,16 @@ class Dependencies(DependencyProvider):
     def sandbox(self) -> CommandRunner:
         return self._sandbox
 
+    @provide
+    def skills(self) -> Skills:
+        if self._skills is None:
+            raise LookupError("This workspace has no skills directory")
+        return self._skills
+
+    def context(self) -> ToolContext:
+        """Optional dependencies, so `provided(...)` can gate tools on them."""
+        return ToolContext(self._skills)
+
 
 def build_tools(
     dependencies: Dependencies,
@@ -38,6 +59,7 @@ def build_tools(
 ) -> Tools:
     tools = Tools(
         dependencies=[dependencies],
+        context=dependencies.context(),
         middleware=(CallLoggingMiddleware(), ErrorBoundaryMiddleware()),
     )
 
@@ -129,7 +151,47 @@ def build_tools(
             return f"exit code: {result.exit_code} (no output)"
         return f"exit code: {result.exit_code}\n{output}"
 
+    @tools.tool(
+        "List the skills available in this workspace, with their descriptions. "
+        "Use it to pick up skills that were added after the session started.",
+        available_when=provided(Skills),
+    )
+    async def list_skills(skills: Inject[Skills]) -> str:
+        skills.refresh_if_changed()
+        if not len(skills):
+            return "no skills defined yet"
+        return budget.shape(
+            "\n".join(f"{skill.name}: {skill.description}" for skill in skills)
+        )
+
+    @tools.tool(
+        "Load a skill by name and return its instructions. Follow them for the "
+        "rest of the task. Bundled resource files are listed at the end.",
+        available_when=provided(Skills),
+    )
+    async def skill(
+        name: str,
+        skills: Inject[Skills],
+        workspace: Inject[Workspace],
+    ) -> str:
+        skills.refresh_if_changed()
+        loaded = skills.load(name)
+        sections = [f"# Skill: {loaded.name}", loaded.instructions]
+        if loaded.resources:
+            directory = _relative_to_workspace(loaded.directory, workspace)
+            files = "\n".join(f"- {directory}/{path}" for path in loaded.resources)
+            sections.append(f"Files bundled with this skill:\n{files}")
+        return budget.shape("\n\n".join(sections))
+
     return tools
+
+
+def _relative_to_workspace(directory: Path, workspace: Workspace) -> str:
+    """Skill paths the file tools can use, falling back to the absolute path."""
+    try:
+        return directory.relative_to(Path(workspace.root).resolve()).as_posix()
+    except ValueError:
+        return directory.as_posix()
 
 
 def _is_hidden(path: str) -> bool:

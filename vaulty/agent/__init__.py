@@ -1,4 +1,4 @@
-from vaulty.agent.agent import SYSTEM_PROMPT, Agent
+from vaulty.agent.agent import Agent
 from vaulty.agent.models import (
     AgentEvent,
     ContextCompacted,
@@ -7,12 +7,13 @@ from vaulty.agent.models import (
     ToolStarted,
     TurnEnded,
 )
+from vaulty.agent.prompt import SystemPrompt
 
 __all__ = [
-    "SYSTEM_PROMPT",
     "Agent",
     "AgentEvent",
     "ContextCompacted",
+    "SystemPrompt",
     "TextDelta",
     "ToolFinished",
     "ToolStarted",

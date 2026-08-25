@@ -28,6 +28,28 @@ class CompactionSettings(BaseModel):
     summary_max_tokens: int = Field(default=8_000, gt=0)
 
 
+class AgentsSettings(BaseModel):
+    """Where the workspace keeps its agent configuration.
+
+    A plain `vaulty/` folder at the workspace root: Obsidian hides dot-folders
+    from the vault, so `.agents/` would be unreachable from the app. Relative
+    paths are resolved against the workspace root.
+    """
+
+    directory: Path = Path("vaulty")
+    skills_dirname: str = "skills"
+    instructions_filename: str = "AGENTS.md"
+
+    def home(self, root: Path) -> Path:
+        return self.directory if self.directory.is_absolute() else root / self.directory
+
+    def skills_dir(self, root: Path) -> Path:
+        return self.home(root) / self.skills_dirname
+
+    def instructions_file(self, root: Path) -> Path:
+        return self.home(root) / self.instructions_filename
+
+
 class SandboxSettings(BaseModel):
     image: str = "vaulty-sandbox:latest"
     timeout_seconds: float = 60.0
@@ -40,6 +62,7 @@ class SandboxSettings(BaseModel):
 
 class Config(BaseModel):
     root: Path = Path(r"C:\obsidian\database")
+    agents: AgentsSettings = Field(default_factory=AgentsSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
     compaction: CompactionSettings = Field(default_factory=CompactionSettings)
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)

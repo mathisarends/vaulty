@@ -1,7 +1,6 @@
 import json
 import logging
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 from agenttoolkit import Tools, ToolSchemaFormat
 from llmify import (
@@ -25,11 +24,10 @@ from vaulty.agent.models import (
     ToolStarted,
     TurnEnded,
 )
+from vaulty.agent.prompt import SystemPrompt
 from vaulty.config import CompactionSettings
 
 logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = (Path(__file__).parent / "system_prompt.md").read_text()
 
 
 class Agent:
@@ -38,12 +36,13 @@ class Agent:
         llm: ChatModel,
         tools: Tools,
         *,
-        system_prompt: str = SYSTEM_PROMPT,
+        system_prompt: SystemPrompt | None = None,
         compaction: CompactionSettings | None = None,
     ) -> None:
         self._llm = llm
         self._tools = tools
-        self._messages: list[Message] = [SystemMessage(content=system_prompt)]
+        prompt = system_prompt or SystemPrompt()
+        self._messages: list[Message] = [SystemMessage(content=prompt.render())]
         self._compactor = ConversationCompactor(
             llm,
             compaction or CompactionSettings(),
