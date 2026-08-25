@@ -1,8 +1,8 @@
 # scheduler
 
 Small, in-memory async scheduler, independent of agent runtimes, web
-frameworks, persistence layers, and payload domains. Three triggers (`At`,
-`Interval`, `Cron`); payloads are generic and stay strongly typed from
+frameworks, persistence layers, and payload domains. Two triggers (`Interval`,
+`Cron`); payloads are generic and stay strongly typed from
 registration through execution — the host owns their meaning.
 
 ```python
@@ -22,5 +22,4 @@ multiple schedulers against one database can double-run a job.
 ## Dependencies
 
 None beyond the standard library for `MemoryJobStore`; `SqliteJobStore` needs
-a host-supplied payload `Codec`. Used by [`gateway-server`](../../gateway/server)
-for periodic housekeeping via `SchedulerProvider`.
+a host-supplied payload `Codec`.

@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from scheduler import (
-    At,
     Cron,
     Interval,
     MemoryJobStore,
@@ -52,7 +51,7 @@ def test_memory_store_rejects_duplicate_and_missing_updates() -> None:
         now = datetime.now(UTC)
         job = ScheduledJob(
             id="job",
-            trigger=At(now),
+            trigger=Interval(timedelta(minutes=5)),
             payload="payload",
             created_at=now,
             next_run_at=now,
@@ -81,11 +80,6 @@ def test_registers_all_supported_trigger_types() -> None:
             payload=Payload("check in"),
             job_id="interval",
         )
-        at = await scheduler.at(
-            datetime(2026, 8, 21, 9, tzinfo=UTC),
-            payload=Payload("one time"),
-            job_id="at",
-        )
         cron = await scheduler.cron(
             expression="0 7 * * 1-5",
             timezone="Europe/Berlin",
@@ -95,11 +89,9 @@ def test_registers_all_supported_trigger_types() -> None:
 
         assert interval.kind == "interval"
         assert isinstance(interval.trigger, Interval)
-        assert at.kind == "at"
-        assert isinstance(at.trigger, At)
         assert cron.kind == "cron"
         assert isinstance(cron.trigger, Cron)
-        assert await store.list() == (interval, at, cron)
+        assert await store.list() == (interval, cron)
 
     asyncio.run(scenario())
 
@@ -110,8 +102,8 @@ def test_scheduler_exposes_persisted_jobs_for_management() -> None:
             pass
 
         scheduler = Scheduler(runner, MemoryJobStore[str]())
-        job = await scheduler.at(
-            datetime(2026, 8, 21, 9, tzinfo=UTC),
+        job = await scheduler.cron(
+            expression="0 9 * * *",
             payload="payload",
             job_id="managed",
         )
@@ -132,39 +124,8 @@ def test_rejects_invalid_definitions() -> None:
 
         with pytest.raises(ValueError, match="greater than zero"):
             await scheduler.interval(every=timedelta(0), payload="payload")
-        with pytest.raises(ValueError, match="timezone"):
-            await scheduler.at(datetime(2026, 8, 21, 9), payload="payload")
         with pytest.raises(ValueError, match="five-field"):
             await scheduler.cron(expression="not a cron", payload="payload")
-
-    asyncio.run(scenario())
-
-
-def test_runs_at_job_once_and_removes_it_from_store() -> None:
-    async def scenario() -> None:
-        runs: list[ScheduledRun[Payload]] = []
-        called = asyncio.Event()
-
-        async def runner(run: ScheduledRun[Payload]) -> None:
-            runs.append(run)
-            called.set()
-
-        store = MemoryJobStore[Payload]()
-        scheduler = Scheduler(runner, store)
-        payload = Payload("stand up")
-        job = await scheduler.at(
-            datetime.now(UTC) + timedelta(milliseconds=10),
-            payload=payload,
-        )
-
-        async with scheduler:
-            await asyncio.wait_for(called.wait(), timeout=1)
-            await asyncio.sleep(0.02)
-
-        assert len(runs) == 1
-        assert await store.list() == ()
-        assert runs[0].job_id == job.id
-        assert runs[0].payload is payload
 
     asyncio.run(scenario())
 
@@ -273,7 +234,7 @@ def test_update_returns_none_for_an_unknown_job() -> None:
         assert (
             await scheduler.update(
                 "missing",
-                trigger=At(datetime(2027, 1, 1, tzinfo=UTC)),
+                trigger=Interval(timedelta(hours=1)),
                 payload="payload",
             )
             is None

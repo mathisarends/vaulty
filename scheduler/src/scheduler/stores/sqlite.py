@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import aiosqlite
 
-from scheduler.models import At, Cron, Interval, ScheduledJob, Trigger
+from scheduler.models import Cron, Interval, ScheduledJob, Trigger
 from scheduler.ports import Codec
 
 _CREATE_TABLE = """
@@ -139,9 +139,6 @@ def _decode_job[PayloadT](
 
 def _encode_trigger(trigger: Trigger) -> tuple[str, str]:
     match trigger:
-        case At(when=when):
-            data = {"when": when.isoformat()}
-            return "at", json.dumps(data, separators=(",", ":"), sort_keys=True)
         case Interval(every=every, run_immediately=run_immediately):
             data = {
                 "run_immediately": run_immediately,
@@ -162,8 +159,6 @@ def _encode_trigger(trigger: Trigger) -> tuple[str, str]:
 def _decode_trigger(kind: str, encoded: str) -> Trigger:
     data = cast(dict[str, object], json.loads(encoded))
     match kind:
-        case "at":
-            return At(when=datetime.fromisoformat(cast(str, data["when"])))
         case "interval":
             return Interval(
                 every=timedelta(seconds=cast(float, data["seconds"])),

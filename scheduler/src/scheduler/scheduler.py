@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 from croniter import croniter
 
 from scheduler.models import (
-    At,
     Cron,
     ErrorHandler,
     Interval,
@@ -64,21 +63,6 @@ class Scheduler[PayloadT]:
             if self._running:
                 self._start_job(job)
         return job
-
-    async def at(
-        self,
-        when: datetime,
-        *,
-        payload: PayloadT,
-        job_id: str | None = None,
-        name: str | None = None,
-    ) -> ScheduledJob[PayloadT]:
-        return await self.schedule(
-            trigger=At(when=when),
-            payload=payload,
-            job_id=job_id,
-            name=name,
-        )
 
     async def interval(
         self,
@@ -258,8 +242,6 @@ class Scheduler[PayloadT]:
 
 def _first_run(trigger: Trigger, now: datetime) -> datetime:
     match trigger:
-        case At(when=when):
-            return when.astimezone(UTC)
         case Interval(run_immediately=True):
             return now
         case Interval(every=every):
@@ -276,8 +258,6 @@ def _next_run(
     now: datetime,
 ) -> datetime | None:
     match trigger:
-        case At():
-            return None
         case Interval(every=every):
             next_run = previous + every
             if next_run <= now:

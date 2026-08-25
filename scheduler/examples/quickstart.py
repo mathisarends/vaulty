@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from scheduler import MemoryJobStore, ScheduledRun, Scheduler
 
@@ -21,11 +21,6 @@ async def main() -> None:
         every=timedelta(seconds=1),
         payload=Message("Look for unfinished work."),
         name="demo interval",
-    )
-    await scheduler.at(
-        datetime.now(UTC) + timedelta(seconds=2),
-        payload=Message("This job only runs once."),
-        name="demo one-shot",
     )
 
     print(f"registered interval {interval.id}")

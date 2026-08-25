@@ -8,7 +8,6 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from scheduler import (
-    At,
     Cron,
     Interval,
     ScheduledJob,
@@ -40,13 +39,6 @@ def test_sqlite_store_persists_crud_and_all_trigger_types(tmp_path: Path) -> Non
         now = datetime.now(UTC)
         jobs = (
             ScheduledJob(
-                id="at",
-                trigger=At(now + timedelta(hours=1)),
-                payload=Payload("once"),
-                created_at=now,
-                next_run_at=now + timedelta(hours=1),
-            ),
-            ScheduledJob(
                 id="interval",
                 trigger=Interval(timedelta(minutes=30), run_immediately=False),
                 payload=Payload("repeat"),
@@ -68,12 +60,12 @@ def test_sqlite_store_persists_crud_and_all_trigger_types(tmp_path: Path) -> Non
 
         reopened = SqliteJobStore(database, payload_codec=codec)
         assert await reopened.list() == jobs
-        assert await reopened.get("interval") == jobs[1]
+        assert await reopened.get("interval") == jobs[0]
 
-        updated = replace(jobs[1], payload=Payload("updated"))
+        updated = replace(jobs[0], payload=Payload("updated"))
         await reopened.update(updated)
         assert await reopened.get(updated.id) == updated
-        assert await reopened.remove("at")
+        assert await reopened.remove("cron")
         assert not await reopened.remove("missing")
 
         with pytest.raises(ValueError, match="already exists"):
@@ -96,8 +88,8 @@ def test_scheduler_loads_job_from_reopened_sqlite_store(tmp_path: Path) -> None:
             unused_runner,
             SqliteJobStore(database, payload_codec=codec),
         )
-        job = await first.at(
-            datetime.now(UTC) + timedelta(milliseconds=20),
+        job = await first.interval(
+            every=timedelta(minutes=30),
             payload=Payload("survived restart"),
             job_id="persisted",
         )
@@ -117,6 +109,8 @@ def test_scheduler_loads_job_from_reopened_sqlite_store(tmp_path: Path) -> None:
 
         assert run.job_id == job.id
         assert run.payload == Payload("survived restart")
-        assert await reopened_store.get(job.id) is None
+        persisted = await reopened_store.get(job.id)
+        assert persisted is not None
+        assert persisted.next_run_at == job.next_run_at + timedelta(minutes=30)
 
     asyncio.run(scenario())

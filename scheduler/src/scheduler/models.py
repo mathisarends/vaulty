@@ -5,16 +5,7 @@ from typing import Literal
 
 from croniter import croniter
 
-type ScheduleKind = Literal["at", "interval", "cron"]
-
-
-@dataclass(frozen=True, slots=True)
-class At:
-    when: datetime
-
-    def __post_init__(self) -> None:
-        if self.when.tzinfo is None or self.when.utcoffset() is None:
-            raise ValueError("Scheduled time must include a timezone")
+type ScheduleKind = Literal["interval", "cron"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,7 +28,7 @@ class Cron:
             raise ValueError(f"Invalid five-field cron expression: {self.expression!r}")
 
 
-type Trigger = At | Interval | Cron
+type Trigger = Interval | Cron
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,8 +51,6 @@ class ScheduledJob[PayloadT]:
     @property
     def kind(self) -> ScheduleKind:
         match self.trigger:
-            case At():
-                return "at"
             case Interval():
                 return "interval"
             case Cron():
