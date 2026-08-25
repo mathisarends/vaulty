@@ -23,6 +23,7 @@ def build_sandbox(
 ) -> DockerSandbox:
     workspace = Path(root).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
+    inherited_environment = ("GH_TOKEN",) if os.getenv("GH_TOKEN") else ()
 
     return DockerSandbox(
         config.image,
@@ -44,6 +45,7 @@ def build_sandbox(
             ),
         ),
         mounts=(BindMount.read_write(workspace, WORKSPACE_MOUNT),),
+        inherit_environment=inherited_environment,
         network_mode="bridge" if config.enable_network else None,
     )
 

@@ -117,7 +117,8 @@ def build_tools(
 
     @tools.tool(
         "Run a shell command inside the Docker sandbox. The workspace is mounted "
-        "at /workspace and is the working directory; there is no network access."
+        "at /workspace and is the working directory. Git and GitHub CLI are "
+        "installed, and GH_TOKEN is available when configured on the host."
     )
     async def bash(command: str, sandbox: Inject[CommandRunner]) -> str:
         result = await sandbox.execute(command)

@@ -8,10 +8,10 @@ llm:
   max_retries: 2
 
 sandbox:
-  image: python:3.13-slim
+  image: vaulty-sandbox:latest
   timeout_seconds: 60
   max_output_bytes: 262144
-  enable_network: false
+  enable_network: true
   memory_bytes: 536870912
   cpus: 1.0
   pids: 256

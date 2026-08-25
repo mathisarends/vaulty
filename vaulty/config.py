@@ -16,10 +16,10 @@ class LLMConfig(BaseModel):
 
 
 class SandboxConfig(BaseModel):
-    image: str = "python:3.13-slim"
+    image: str = "vaulty-sandbox:latest"
     timeout_seconds: float = 60.0
     max_output_bytes: int = 256 * 1024
-    enable_network: bool = False
+    enable_network: bool = True
     memory_bytes: int = 512 * 1024 * 1024
     cpus: float = 1.0
     pids: int = 256
