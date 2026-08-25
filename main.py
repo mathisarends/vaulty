@@ -6,7 +6,7 @@ from pathlib import Path
 from agenttoolkit.builtins.fs import LocalWorkspace
 
 from vaulty.agent import Agent, TextDelta, ToolFinished, ToolStarted, TurnEnded
-from vaulty.config import DEFAULT_CONFIG_PATH, Config, load_config
+from vaulty.config import DEFAULT_CONFIG_PATH, Config, load_config, load_environment
 from vaulty.llm import build_llm
 from vaulty.sandbox import open_sandbox
 from vaulty.tools import Dependencies, build_tools
@@ -81,6 +81,7 @@ async def _main(config: Config) -> None:
 
 
 def main() -> None:
+    load_environment()
     parser = argparse.ArgumentParser(prog="vaulty")
     parser.add_argument(
         "--config",

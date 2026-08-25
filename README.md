@@ -60,14 +60,14 @@ The agent can use Git and GitHub CLI directly in `bash`. The configured workspac
 is mounted at `/workspace`, so it can commit and push its worktree and create a
 pull request from the same container.
 
-Provide a fine-grained GitHub token to the Vaulty host process:
+Put a fine-grained GitHub token in the local `.env` file:
 
-```powershell
-$env:GH_TOKEN = "github_pat_..."
-uv run python main.py
+```dotenv
+GH_TOKEN=github_pat_...
 ```
 
-Vaulty passes `GH_TOKEN` into the container when the variable is present. The
-token is not stored in the image or in `vaulty.yaml`. Use a fine-grained token
-with only the repository permissions required for pushing branches and creating
-pull requests. Container network access must be enabled in `vaulty.yaml`.
+Vaulty loads `.env` without overriding variables already exported by the host,
+then passes `GH_TOKEN` into the container. The token is not stored in the image
+or in `vaulty.yaml`; `.env` is ignored by Git. Use a fine-grained token with only
+the repository permissions required for pushing branches and creating pull
+requests. Container network access must be enabled in `vaulty.yaml`.

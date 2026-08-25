@@ -1,11 +1,13 @@
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 from llmify import OpenAIModel
 from llmify.providers.openai_responses import ReasoningEffort
 from pydantic import BaseModel
 
 DEFAULT_CONFIG_PATH = Path("vaulty.yaml")
+DEFAULT_ENV_PATH = Path(".env")
 
 
 class LLMConfig(BaseModel):
@@ -36,3 +38,8 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
     if not path.exists():
         return Config()
     return Config.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+
+
+def load_environment(path: Path = DEFAULT_ENV_PATH) -> bool:
+    """Load local secrets without replacing explicitly exported variables."""
+    return load_dotenv(path, override=False)

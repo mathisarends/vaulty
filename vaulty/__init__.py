@@ -7,7 +7,13 @@ from vaulty.agent import (
     ToolStarted,
     TurnEnded,
 )
-from vaulty.config import Config, LLMConfig, SandboxConfig, load_config
+from vaulty.config import (
+    Config,
+    LLMConfig,
+    SandboxConfig,
+    load_config,
+    load_environment,
+)
 from vaulty.llm import build_llm
 from vaulty.sandbox import build_sandbox, open_sandbox
 from vaulty.tools import Dependencies, build_tools
@@ -28,5 +34,6 @@ __all__ = [
     "build_sandbox",
     "build_tools",
     "load_config",
+    "load_environment",
     "open_sandbox",
 ]
