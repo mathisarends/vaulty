@@ -12,49 +12,46 @@ from agenttoolkit.builtins.shell import (
     SandboxPolicy,
 )
 
-DEFAULT_IMAGE = "python:3.13-slim"
+from vaulty.config import SandboxConfig
+
 WORKSPACE_MOUNT = PurePosixPath("/workspace")
 
 
 def build_sandbox(
     root: str | os.PathLike[str],
-    *,
-    image: str = DEFAULT_IMAGE,
-    timeout_seconds: float = 60.0,
-    max_output_bytes: int = 256 * 1024,
-    enable_network: bool = False,
-    memory_bytes: int = 512 * 1024 * 1024,
-    cpus: float = 1.0,
-    pids: int = 256,
+    config: SandboxConfig,
 ) -> DockerSandbox:
     workspace = Path(root).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
 
     return DockerSandbox(
-        image,
+        config.image,
         defaults=CommandDefaults(
             workspace,
             limits=CommandLimits(
-                timeout_seconds=timeout_seconds,
-                max_output_bytes=max_output_bytes,
+                timeout_seconds=config.timeout_seconds,
+                max_output_bytes=config.max_output_bytes,
             ),
         ),
         policy=SandboxPolicy.for_workspace(
             workspace,
             writable=True,
-            enable_network_access=enable_network,
-            limits=SandboxLimits(memory_bytes=memory_bytes, cpus=cpus, pids=pids),
+            enable_network_access=config.enable_network,
+            limits=SandboxLimits(
+                memory_bytes=config.memory_bytes,
+                cpus=config.cpus,
+                pids=config.pids,
+            ),
         ),
         mounts=(BindMount.read_write(workspace, WORKSPACE_MOUNT),),
-        network_mode="bridge" if enable_network else None,
+        network_mode="bridge" if config.enable_network else None,
     )
 
 
 @asynccontextmanager
 async def open_sandbox(
     root: str | os.PathLike[str],
-    **kwargs: object,
+    config: SandboxConfig,
 ) -> AsyncGenerator[DockerSandbox]:
-    sandbox = build_sandbox(root, **kwargs)  # type: ignore[arg-type]
-    async with sandbox:
+    async with build_sandbox(root, config) as sandbox:
         yield sandbox

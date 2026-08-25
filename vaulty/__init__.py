@@ -7,17 +7,19 @@ from vaulty.agent import (
     ToolStarted,
     TurnEnded,
 )
-from vaulty.llm import LLMSettings, build_llm, get_settings
-from vaulty.sandbox import DEFAULT_IMAGE, build_sandbox, open_sandbox
+from vaulty.config import Config, LLMConfig, SandboxConfig, load_config
+from vaulty.llm import build_llm
+from vaulty.sandbox import build_sandbox, open_sandbox
 from vaulty.tools import Dependencies, build_tools
 
 __all__ = [
-    "DEFAULT_IMAGE",
     "SYSTEM_PROMPT",
     "Agent",
     "AgentEvent",
+    "Config",
     "Dependencies",
-    "LLMSettings",
+    "LLMConfig",
+    "SandboxConfig",
     "TextDelta",
     "ToolFinished",
     "ToolStarted",
@@ -25,6 +27,6 @@ __all__ = [
     "build_llm",
     "build_sandbox",
     "build_tools",
-    "get_settings",
+    "load_config",
     "open_sandbox",
 ]

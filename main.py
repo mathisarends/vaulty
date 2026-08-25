@@ -1,16 +1,15 @@
 import argparse
 import asyncio
-import os
 import sys
+from pathlib import Path
 
 from agenttoolkit.builtins.fs import LocalWorkspace
 
 from vaulty.agent import Agent, TextDelta, ToolFinished, ToolStarted, TurnEnded
+from vaulty.config import DEFAULT_CONFIG_PATH, Config, load_config
 from vaulty.llm import build_llm
-from vaulty.sandbox import DEFAULT_IMAGE, open_sandbox
+from vaulty.sandbox import open_sandbox
 from vaulty.tools import Dependencies, build_tools
-
-DEFAULT_ROOT = os.environ.get("VAULTY_ROOT", r"C:\obsidian\database")
 
 DIM = "\033[2m"
 CYAN = "\033[36m"
@@ -73,36 +72,26 @@ async def _turn(agent: Agent, task: str) -> None:
                     print(f"{DIM}stopped after {steps} steps without an answer{RESET}")
 
 
-async def _main(args: argparse.Namespace) -> None:
-    workspace = LocalWorkspace(args.root)
-    async with open_sandbox(
-        workspace.root,
-        image=args.image,
-        enable_network=args.network,
-    ) as sandbox:
+async def _main(config: Config) -> None:
+    workspace = LocalWorkspace(config.root)
+    async with open_sandbox(workspace.root, config.sandbox) as sandbox:
         tools = build_tools(Dependencies(workspace, sandbox))
-        agent = Agent(build_llm(), tools, max_steps=args.max_steps)
+        agent = Agent(build_llm(config.llm), tools, max_steps=config.max_steps)
         await chat(agent)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="vaulty")
     parser.add_argument(
-        "--root",
-        default=DEFAULT_ROOT,
-        help=f"workspace root (default: {DEFAULT_ROOT})",
-    )
-    parser.add_argument("--image", default=DEFAULT_IMAGE, help="sandbox image")
-    parser.add_argument("--max-steps", type=int, default=20)
-    parser.add_argument(
-        "--network",
-        action="store_true",
-        help="allow network access inside the sandbox",
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG_PATH,
+        help=f"config file (default: {DEFAULT_CONFIG_PATH})",
     )
     args = parser.parse_args()
 
     try:
-        asyncio.run(_main(args))
+        asyncio.run(_main(load_config(args.config)))
     except KeyboardInterrupt:
         pass
 

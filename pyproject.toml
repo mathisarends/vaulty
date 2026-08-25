@@ -8,7 +8,7 @@ dependencies = [
     "mm-agenttoolkit>=0.4.0",
     "py-llmify[openai]>=0.10.0",
     "pydantic>=2.13.4",
-    "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0.3",
 ]
 
 [dependency-groups]

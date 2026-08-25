@@ -1,0 +1,17 @@
+root: C:\obsidian\database
+max_steps: 20
+
+llm:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  timeout_seconds: 120
+  max_retries: 2
+
+sandbox:
+  image: python:3.13-slim
+  timeout_seconds: 60
+  max_output_bytes: 262144
+  enable_network: false
+  memory_bytes: 536870912
+  cpus: 1.0
+  pids: 256
