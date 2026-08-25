@@ -1,6 +1,5 @@
-from vaulty.agent.prompt import SystemPrompt
-
 from .agent import Agent
+from .prompt import SystemPrompt, read_base_prompt
 from .views import (
     AgentEvent,
     ContextCompacted,
@@ -19,4 +18,5 @@ __all__ = [
     "ToolFinished",
     "ToolStarted",
     "TurnEnded",
+    "read_base_prompt",
 ]

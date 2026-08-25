@@ -4,7 +4,7 @@ import pytest
 from agenttoolkit.builtins.fs import LocalWorkspace
 
 from tests.test_tools import FakeRunner
-from vaulty.agent import SystemPrompt
+from vaulty.agent import SystemPrompt, read_base_prompt
 from vaulty.agents import INSTRUCTIONS_TEMPLATE, open_agents_home
 from vaulty.config import AgentsSettings
 from vaulty.tools import Dependencies, build_tools
@@ -57,29 +57,36 @@ def test_existing_instructions_are_kept(tmp_path):
     assert home.instructions == "Never touch the archive."
 
 
-def test_system_prompt_carries_instructions_and_skill_catalogue(tmp_path, base_prompt):
+def test_system_prompt_appends_instructions_and_skill_catalogue(tmp_path):
     write_skill(tmp_path)
     home = open_agents_home(tmp_path, AgentsSettings())
 
-    prompt = SystemPrompt(home, base_file=base_prompt).render()
+    prompt = SystemPrompt(
+        base="base prompt",
+        instructions="Never touch the archive.",
+        skills=home.skills,
+    ).render()
 
     assert prompt.startswith("base prompt")
-    assert "<workspace_instructions" in prompt
+    assert "<workspace_instructions>\nNever touch the archive." in prompt
     assert "<available_skills>" in prompt
     assert "weekly-review" in prompt
 
 
-def test_system_prompt_without_a_workspace_is_the_base_text(base_prompt):
-    assert SystemPrompt(base_file=base_prompt).render() == "base prompt"
+def test_system_prompt_is_the_base_text_alone_without_a_workspace():
+    assert SystemPrompt("base prompt").render() == "base prompt"
 
 
-def test_system_prompt_omits_empty_sections(tmp_path, base_prompt):
+def test_system_prompt_omits_empty_sections(tmp_path):
     home = open_agents_home(tmp_path, AgentsSettings())
-    home.instructions_file.write_text("", encoding="utf-8")
 
-    prompt = SystemPrompt(home, base_file=base_prompt).render()
+    prompt = SystemPrompt("base prompt", instructions="", skills=home.skills)
 
-    assert prompt == "base prompt"
+    assert prompt.render() == "base prompt"
+
+
+def test_read_base_prompt_loads_the_bundled_instructions(base_prompt):
+    assert read_base_prompt(base_prompt) == "base prompt"
 
 
 def test_skill_tool_returns_instructions_and_relative_resources(tmp_path):

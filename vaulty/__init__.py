@@ -7,6 +7,7 @@ from .agent import (
     ToolFinished,
     ToolStarted,
     TurnEnded,
+    read_base_prompt,
 )
 from .agents import AgentsHome, open_agents_home
 from .config import (
@@ -45,4 +46,5 @@ __all__ = [
     "load_environment",
     "open_agents_home",
     "open_sandbox",
+    "read_base_prompt",
 ]

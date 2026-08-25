@@ -1,7 +1,8 @@
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
-from vaulty.agents import AgentsHome
+from agenttoolkit import Skills
 
 BASE_PROMPT_FILE = Path(__file__).parent / "system_prompt.md"
 
@@ -12,44 +13,40 @@ SKILLS_INTRO = (
 )
 
 
-class SystemPrompt:
-    """The agent's system prompt: base instructions plus what the workspace adds.
+def read_base_prompt(path: Path = BASE_PROMPT_FILE) -> str:
+    """Read the base instructions; the one place the prompt touches the disk."""
+    return path.read_text(encoding="utf-8").strip()
 
-    The base text lives in `system_prompt.md`; an `AgentsHome` contributes the
-    workspace's `AGENTS.md` and the catalogue of its skills.
+
+@dataclass(frozen=True, slots=True)
+class SystemPrompt:
+    """The agent's system prompt, composed from what the caller hands in.
+
+    Pure text assembly: the caller reads the base instructions (see
+    `read_base_prompt`) and the workspace's `AGENTS.md`, and passes the loaded
+    skill registry. Rendering never touches the filesystem.
     """
 
-    def __init__(
-        self,
-        home: AgentsHome | None = None,
-        *,
-        base_file: Path = BASE_PROMPT_FILE,
-    ) -> None:
-        self._home = home
-        self._base_file = base_file
-
-    @property
-    def base(self) -> str:
-        return self._base_file.read_text(encoding="utf-8").strip()
+    base: str
+    instructions: str | None = None
+    skills: Skills | None = None
 
     def render(self) -> str:
-        sections = [self.base]
-        if self._home is not None:
-            sections.extend(self._workspace_sections(self._home))
-        return "\n\n".join(sections)
+        return "\n\n".join(self._sections())
 
     def __str__(self) -> str:
         return self.render()
 
-    def _workspace_sections(self, home: AgentsHome) -> Iterator[str]:
-        instructions = home.instructions
-        if instructions:
+    def _sections(self) -> Iterator[str]:
+        yield self.base.strip()
+
+        if self.instructions:
             yield (
-                f'<workspace_instructions source="{home.instructions_file}">\n'
-                f"{instructions}\n"
+                "<workspace_instructions>\n"
+                f"{self.instructions.strip()}\n"
                 "</workspace_instructions>"
             )
 
-        catalogue = home.skills.render_prompt()
+        catalogue = self.skills.render_prompt() if self.skills is not None else ""
         if catalogue:
             yield f"{SKILLS_INTRO}\n\n{catalogue}"

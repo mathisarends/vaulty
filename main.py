@@ -13,6 +13,7 @@ from vaulty.agent import (
     ToolFinished,
     ToolStarted,
     TurnEnded,
+    read_base_prompt,
 )
 from vaulty.agents import open_agents_home
 from vaulty.config import (
@@ -98,7 +99,11 @@ async def _main(config: Config) -> None:
         agent = Agent(
             build_llm(config.llm),
             tools,
-            system_prompt=SystemPrompt(home),
+            system_prompt=SystemPrompt(
+                base=read_base_prompt(),
+                instructions=home.instructions,
+                skills=home.skills,
+            ),
             compaction=config.compaction,
         )
         await chat(agent)

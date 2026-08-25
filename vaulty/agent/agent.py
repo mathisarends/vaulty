@@ -16,7 +16,7 @@ from llmify import (
 )
 
 from vaulty.agent.compaction import ConversationCompactor
-from vaulty.agent.prompt import SystemPrompt
+from vaulty.agent.prompt import SystemPrompt, read_base_prompt
 from vaulty.agent.views import (
     AgentEvent,
     ContextCompacted,
@@ -41,7 +41,7 @@ class Agent:
     ) -> None:
         self._llm = llm
         self._tools = tools
-        prompt = system_prompt or SystemPrompt()
+        prompt = system_prompt or SystemPrompt(read_base_prompt())
         self._messages: list[Message] = [SystemMessage(content=prompt.render())]
         self._compactor = ConversationCompactor(
             llm,
