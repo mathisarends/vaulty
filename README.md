@@ -18,7 +18,7 @@ inside a locked-down Docker container.
 ## Usage
 
 ```bash
-uv run python main.py --root .
+uv run python main.py
 ```
 
 ```text
@@ -40,6 +40,9 @@ async for event in agent.run("summarise the repo layout"):
         case ToolStarted(name, arguments):
             print(name, arguments)
 ```
+
+The workspace defaults to the Obsidian vault at `C:\obsidian\database`;
+override it with `--root` or the `VAULTY_ROOT` environment variable.
 
 Requires a logged-in Codex CLI (`~/.codex/auth.json`) and a running Docker daemon.
 Settings: `VAULTY_MODEL`, `VAULTY_REASONING_EFFORT`, `VAULTY_TIMEOUT_SECONDS`,

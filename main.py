@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import os
 import sys
 
 from agenttoolkit.builtins.fs import LocalWorkspace
@@ -8,6 +9,8 @@ from vaulty.agent import Agent, TextDelta, ToolFinished, ToolStarted, TurnEnded
 from vaulty.llm import build_llm
 from vaulty.sandbox import DEFAULT_IMAGE, open_sandbox
 from vaulty.tools import Dependencies, build_tools
+
+DEFAULT_ROOT = os.environ.get("VAULTY_ROOT", r"C:\obsidian\database")
 
 DIM = "\033[2m"
 CYAN = "\033[36m"
@@ -79,12 +82,16 @@ async def _main(args: argparse.Namespace) -> None:
     ) as sandbox:
         tools = build_tools(Dependencies(workspace, sandbox))
         agent = Agent(build_llm(), tools, max_steps=args.max_steps)
-        await chat(agent)
+        await chat(agent, str(workspace.root))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="vaulty")
-    parser.add_argument("--root", default=".", help="workspace root (default: cwd)")
+    parser.add_argument(
+        "--root",
+        default=DEFAULT_ROOT,
+        help=f"workspace root (default: {DEFAULT_ROOT})",
+    )
     parser.add_argument("--image", default=DEFAULT_IMAGE, help="sandbox image")
     parser.add_argument("--max-steps", type=int, default=20)
     parser.add_argument(
