@@ -6,8 +6,11 @@ from llmify import OpenAIModel
 from llmify.providers.openai_responses import ReasoningEffort
 from pydantic import BaseModel, Field
 
-DEFAULT_CONFIG_PATH = Path("vaulty.yaml")
+DEFAULT_CONFIG_PATH = Path("vaulty.yml")
 DEFAULT_ENV_PATH = Path(".env")
+
+# Backward-compatible legacy filename.
+LEGACY_CONFIG_PATH = Path("vaulty.yaml")
 
 
 class LLMSettings(BaseModel):
@@ -42,10 +45,27 @@ class Config(BaseModel):
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
 
 
+def _resolve_config_path(path: Path) -> Path:
+    if path.exists():
+        return path
+
+    if path.name == "vaulty.yml":
+        legacy = path.with_name("vaulty.yaml")
+        if legacy.exists():
+            return legacy
+
+    return path
+
+
 def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
-    if not path.exists():
+    config_path = _resolve_config_path(path)
+
+    if not config_path.exists():
         return Config()
-    return Config.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+
+    return Config.model_validate(
+        yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    )
 
 
 def load_environment(path: Path = DEFAULT_ENV_PATH) -> bool:

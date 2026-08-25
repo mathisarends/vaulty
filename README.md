@@ -52,7 +52,7 @@ Settings: `VAULTY_MODEL`, `VAULTY_REASONING_EFFORT`, `VAULTY_TIMEOUT_SECONDS`,
 
 Vaulty compacts older conversation turns before the active model approaches its
 context limit. It resolves the window from the model profiles in `vaulty/llm.py`.
-Set `compaction.context_window_tokens` in `vaulty.yaml` when an explicit override
+Set `compaction.context_window_tokens` in `vaulty.yml` (or `vaulty.yaml`) when an explicit override
 is needed. Recent complete turns remain verbatim; older history is replaced with
 a model-generated working checkpoint. Compaction can repeat during long sessions.
 
@@ -76,6 +76,6 @@ GH_TOKEN=github_pat_...
 
 Vaulty loads `.env` without overriding variables already exported by the host,
 then passes `GH_TOKEN` into the container. The token is not stored in the image
-or in `vaulty.yaml`; `.env` is ignored by Git. Use a fine-grained token with only
+or in `vaulty.yml`; `.env` is ignored by Git. Use a fine-grained token with only
 the repository permissions required for pushing branches and creating pull
-requests. Container network access must be enabled in `vaulty.yaml`.
+requests. Container network access must be enabled in `vaulty.yml`.

@@ -13,7 +13,13 @@ from vaulty.agent import (
     ToolStarted,
     TurnEnded,
 )
-from vaulty.config import DEFAULT_CONFIG_PATH, Config, load_config, load_environment
+from vaulty.config import (
+    DEFAULT_CONFIG_PATH,
+    LEGACY_CONFIG_PATH,
+    Config,
+    load_config,
+    load_environment,
+)
 from vaulty.llm import build_llm
 from vaulty.sandbox import open_sandbox
 from vaulty.tools import Dependencies, build_tools
@@ -97,7 +103,9 @@ def main() -> None:
         "--config",
         type=Path,
         default=DEFAULT_CONFIG_PATH,
-        help=f"config file (default: {DEFAULT_CONFIG_PATH})",
+        help=(
+            f"config file (default: {DEFAULT_CONFIG_PATH}; legacy {LEGACY_CONFIG_PATH})"
+        ),
     )
     args = parser.parse_args()
 
