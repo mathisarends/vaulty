@@ -31,12 +31,12 @@ class CompactionSettings(BaseModel):
 class AgentsSettings(BaseModel):
     """Where the workspace keeps its agent configuration.
 
-    A plain `VAULTY/` folder at the workspace root: Obsidian hides dot-folders
+    A plain `DOT.VAULTY/` folder at the workspace root: Obsidian hides dot-folders
     from the vault, so `.agents/` would be unreachable from the app. Relative
     paths are resolved against the workspace root.
     """
 
-    directory: Path = Path("VAULTY")
+    directory: Path = Path("DOT.VAULTY")
     skills_dirname: str = "skills"
     instructions_filename: str = "AGENTS.md"
 

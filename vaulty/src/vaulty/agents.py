@@ -1,6 +1,6 @@
 """The workspace's own agent configuration: `AGENTS.md` plus a skills directory.
 
-Both live under `<root>/VAULTY/` by default, so an Obsidian vault carries the
+Both live under `<root>/DOT.VAULTY/` by default, so an Obsidian vault carries the
 same setup a code repo would keep next to its source.
 """
 

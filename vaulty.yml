@@ -3,7 +3,7 @@ root: C:\obsidian\database
 agents:
   # Relative to root; created on start if missing. Not a dot-folder, so it
   # stays visible and editable inside Obsidian.
-  directory: VAULTY
+  directory: DOT.VAULTY
   skills_dirname: skills
   instructions_filename: AGENTS.md
 

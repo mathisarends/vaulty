@@ -27,7 +27,7 @@ def base_prompt(tmp_path_factory):
 
 
 def write_skill(root, name="weekly-review", body=SKILL):
-    directory = root / "VAULTY" / "skills" / name
+    directory = root / "DOT.VAULTY" / "skills" / name
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "SKILL.md").write_text(body, encoding="utf-8")
     return directory
@@ -40,15 +40,15 @@ def call(tools, tool_name, **arguments):
 def test_open_agents_home_scaffolds_the_workspace(tmp_path):
     home = open_agents_home(tmp_path, AgentsSettings())
 
-    assert home.directory == tmp_path / "VAULTY"
-    assert (tmp_path / "VAULTY" / "skills").is_dir()
-    assert home.instructions_file == tmp_path / "VAULTY" / "AGENTS.md"
+    assert home.directory == tmp_path / "DOT.VAULTY"
+    assert (tmp_path / "DOT.VAULTY" / "skills").is_dir()
+    assert home.instructions_file == tmp_path / "DOT.VAULTY" / "AGENTS.md"
     assert home.instructions == INSTRUCTIONS_TEMPLATE.strip()
     assert len(home.skills) == 0
 
 
 def test_existing_instructions_are_kept(tmp_path):
-    instructions = tmp_path / "VAULTY" / "AGENTS.md"
+    instructions = tmp_path / "DOT.VAULTY" / "AGENTS.md"
     instructions.parent.mkdir(parents=True)
     instructions.write_text("Never touch the archive.", encoding="utf-8")
 
@@ -99,7 +99,7 @@ def test_skill_tool_returns_instructions_and_relative_resources(tmp_path):
     result = call(tools, "skill", name="weekly-review")
 
     assert "Open the daily notes" in result
-    assert "VAULTY/skills/weekly-review/template.md" in result
+    assert "DOT.VAULTY/skills/weekly-review/template.md" in result
 
 
 def test_list_skills_picks_up_skills_written_during_the_session(tmp_path):

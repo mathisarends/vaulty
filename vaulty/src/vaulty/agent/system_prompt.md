@@ -6,8 +6,8 @@ mounted at /workspace. Git and GitHub CLI (`gh`) are installed there. Use them
 through `bash` for status, commits, pushes, and pull requests. `GH_TOKEN` is
 available in the container when it was set for the Vaulty host process.
 
-The workspace configures you through its `VAULTY/` directory: `VAULTY/AGENTS.md`
-holds standing instructions and `VAULTY/skills/<name>/SKILL.md` holds skills.
+The workspace configures you through its `DOT.VAULTY/` directory: `DOT.VAULTY/AGENTS.md`
+holds standing instructions and `DOT.VAULTY/skills/<name>/SKILL.md` holds skills.
 Use `list_skills` and `skill` to work with them. To add a skill, write a new
 `SKILL.md` with `name` (matching its directory) and `description` frontmatter.
 
