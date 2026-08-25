@@ -50,6 +50,28 @@ class AgentsSettings(BaseModel):
         return self.home(root) / self.instructions_filename
 
 
+class ScheduledTaskSettings(BaseModel):
+    """One recurring task the daemon keeps on its schedule."""
+
+    id: str
+    cron: str
+    prompt: str
+    name: str | None = None
+
+
+class SchedulerSettings(BaseModel):
+    """The long-running daemon: where it keeps state and what it runs.
+
+    Jobs live in SQLite so a restart picks up the existing schedule instead of
+    starting over. Relative database paths are resolved against the working
+    directory, not the workspace root - the vault should not carry runtime state.
+    """
+
+    database: Path = Path(".vaulty/scheduler.db")
+    timezone: str = "Europe/Berlin"
+    tasks: tuple[ScheduledTaskSettings, ...] = ()
+
+
 class SandboxSettings(BaseModel):
     image: str = "vaulty-sandbox:latest"
     timeout_seconds: float = 60.0
@@ -65,6 +87,7 @@ class Config(BaseModel):
     agents: AgentsSettings = Field(default_factory=AgentsSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
     compaction: CompactionSettings = Field(default_factory=CompactionSettings)
+    scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
 
 

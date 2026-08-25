@@ -10,3 +10,14 @@ uv workspace with two members:
 ```bash
 uv run vaulty
 ```
+
+## Processes
+
+| Command | What it is |
+| --- | --- |
+| `uv run vaulty` | Interactive chat session |
+| `uv run vaulty-daemon` | Long-running process that owns the schedule |
+
+The daemon reads its jobs from the `scheduler:` block in `vaulty.yml` and
+reconciles them into `.vaulty/scheduler.db` on every start, so editing the
+config and restarting is the way to change the schedule.

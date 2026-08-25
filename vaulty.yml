@@ -21,6 +21,16 @@ compaction:
   retain_tokens: 32000
   summary_max_tokens: 8000
 
+scheduler:
+  # Runtime state, relative to the working directory - kept out of the vault.
+  database: .vaulty/scheduler.db
+  timezone: Europe/Berlin
+  tasks:
+    - id: daily-gardening
+      name: daily
+      cron: "0 4 * * *"
+      prompt: Tend the vault.
+
 sandbox:
   image: vaulty-sandbox:latest
   timeout_seconds: 60
