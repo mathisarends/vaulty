@@ -5,7 +5,14 @@ from pathlib import Path
 
 from agenttoolkit.builtins.fs import LocalWorkspace
 
-from vaulty.agent import Agent, TextDelta, ToolFinished, ToolStarted, TurnEnded
+from vaulty.agent import (
+    Agent,
+    ContextCompacted,
+    TextDelta,
+    ToolFinished,
+    ToolStarted,
+    TurnEnded,
+)
 from vaulty.config import DEFAULT_CONFIG_PATH, Config, load_config, load_environment
 from vaulty.llm import build_llm
 from vaulty.sandbox import open_sandbox
@@ -65,18 +72,21 @@ async def _turn(agent: Agent, task: str) -> None:
                 print(f"{CYAN}• {name}({_format_arguments(arguments)}){RESET}")
             case ToolFinished(_, result):
                 print(f"{DIM}  {_preview(result)}{RESET}")
-            case TurnEnded(_, steps, stopped_early):
+            case ContextCompacted(before_tokens, after_tokens):
+                print(
+                    f"{DIM}context compacted: {before_tokens:,} -> "
+                    f"{after_tokens:,} estimated tokens{RESET}"
+                )
+            case TurnEnded(_, _):
                 if streaming_text:
                     print()
-                if stopped_early:
-                    print(f"{DIM}stopped after {steps} steps without an answer{RESET}")
 
 
 async def _main(config: Config) -> None:
     workspace = LocalWorkspace(config.root)
     async with open_sandbox(workspace.root, config.sandbox) as sandbox:
         tools = build_tools(Dependencies(workspace, sandbox))
-        agent = Agent(build_llm(config.llm), tools, max_steps=config.max_steps)
+        agent = Agent(build_llm(config.llm), tools, compaction=config.compaction)
         await chat(agent)
 
 

@@ -1,11 +1,18 @@
 root: C:\obsidian\database
-max_steps: 20
 
 llm:
   model: gpt-5.6-luna
   reasoning_effort: medium
   timeout_seconds: 120
   max_retries: 2
+
+compaction:
+  enabled: true
+  # Resolved from the model profile in vaulty/llm.py when omitted.
+  # context_window_tokens: 272000
+  trigger_fraction: 0.8
+  retain_tokens: 32000
+  summary_max_tokens: 8000
 
 sandbox:
   image: vaulty-sandbox:latest

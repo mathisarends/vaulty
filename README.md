@@ -12,7 +12,7 @@ inside a locked-down Docker container.
 | `vaulty/llm.py` | `ChatCodex` (gpt-5.6-luna) via Codex-CLI-Login, konfigurierbar über `VAULTY_*` env vars |
 | `vaulty/sandbox.py` | `DockerSandbox`: read-only rootfs, workspace bind-mounted at `/workspace` |
 | `vaulty/tools.py` | `Dependencies` provider + `read_file`, `write_file`, `edit_file`, `list_dir`, `glob`, `grep`, `bash` |
-| `vaulty/agent.py` | The loop: stream → run tool calls → feed results back → repeat; emits `TextDelta`, `ToolStarted`, `ToolFinished`, `TurnEnded` |
+| `vaulty/agent/` | Agent loop and loss-aware context compaction for long-running tool workflows |
 | `main.py` | Terminal chat: streams the answer live and prints every tool call with its result |
 
 ## Usage
@@ -47,6 +47,14 @@ override it with `--root` or the `VAULTY_ROOT` environment variable.
 Requires a logged-in Codex CLI (`~/.codex/auth.json`) and a running Docker daemon.
 Settings: `VAULTY_MODEL`, `VAULTY_REASONING_EFFORT`, `VAULTY_TIMEOUT_SECONDS`,
 `VAULTY_MAX_RETRIES` (env or `.env`).
+
+## Context compaction
+
+Vaulty compacts older conversation turns before the active model approaches its
+context limit. It resolves the window from the model profiles in `vaulty/llm.py`.
+Set `compaction.context_window_tokens` in `vaulty.yaml` when an explicit override
+is needed. Recent complete turns remain verbatim; older history is replaced with
+a model-generated working checkpoint. Compaction can repeat during long sessions.
 
 ## Git and GitHub
 

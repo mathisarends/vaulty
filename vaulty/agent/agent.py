@@ -16,13 +16,16 @@ from llmify import (
     UserMessage,
 )
 
+from vaulty.agent.compaction import ConversationCompactor
 from vaulty.agent.models import (
     AgentEvent,
+    ContextCompacted,
     TextDelta,
     ToolFinished,
     ToolStarted,
     TurnEnded,
 )
+from vaulty.config import CompactionSettings
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +39,16 @@ class Agent:
         tools: Tools,
         *,
         system_prompt: str = SYSTEM_PROMPT,
-        max_steps: int = 20,
+        compaction: CompactionSettings | None = None,
     ) -> None:
-        if max_steps < 1:
-            raise ValueError("max_steps must be at least 1")
         self._llm = llm
         self._tools = tools
-        self._max_steps = max_steps
         self._messages: list[Message] = [SystemMessage(content=system_prompt)]
+        self._compactor = ConversationCompactor(
+            llm,
+            compaction or CompactionSettings(),
+            model=llm.model,
+        )
 
     @property
     def messages(self) -> list[Message]:
@@ -53,7 +58,15 @@ class Agent:
         self._messages.append(UserMessage(content=task))
         schemas = self._tools.get_schema(ToolSchemaFormat.OPENAI)
 
-        for step in range(1, self._max_steps + 1):
+        step = 0
+        while True:
+            compacted = await self._compactor.compact_if_needed(self._messages, schemas)
+            if compacted is not None:
+                messages, before_tokens, after_tokens = compacted
+                self._messages[:] = messages
+                yield ContextCompacted(before_tokens, after_tokens)
+
+            step += 1
             end: StreamEnd | None = None
             async for event in self._llm.stream(self._messages, tools=schemas):
                 if isinstance(event, StreamTextDelta):
@@ -83,8 +96,6 @@ class Agent:
                 self._messages.append(
                     ToolResultMessage(tool_call_id=call.id, content=result)
                 )
-
-        yield TurnEnded(text="", steps=self._max_steps, stopped_early=True)
 
     async def _call_tool(self, name: str, arguments: dict) -> str:
         logger.info("[agent] %s(%s)", name, arguments)

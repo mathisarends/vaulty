@@ -12,14 +12,14 @@ from agenttoolkit.builtins.shell import (
     SandboxPolicy,
 )
 
-from vaulty.config import SandboxConfig
+from vaulty.config import SandboxSettings
 
 WORKSPACE_MOUNT = PurePosixPath("/workspace")
 
 
 def build_sandbox(
     root: str | os.PathLike[str],
-    config: SandboxConfig,
+    config: SandboxSettings,
 ) -> DockerSandbox:
     workspace = Path(root).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
@@ -53,7 +53,7 @@ def build_sandbox(
 @asynccontextmanager
 async def open_sandbox(
     root: str | os.PathLike[str],
-    config: SandboxConfig,
+    config: SandboxSettings,
 ) -> AsyncGenerator[DockerSandbox]:
     async with build_sandbox(root, config) as sandbox:
         yield sandbox

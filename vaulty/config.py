@@ -4,20 +4,28 @@ import yaml
 from dotenv import load_dotenv
 from llmify import OpenAIModel
 from llmify.providers.openai_responses import ReasoningEffort
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 DEFAULT_CONFIG_PATH = Path("vaulty.yaml")
 DEFAULT_ENV_PATH = Path(".env")
 
 
-class LLMConfig(BaseModel):
+class LLMSettings(BaseModel):
     model: OpenAIModel = OpenAIModel.GPT_5_6_LUNA
     reasoning_effort: ReasoningEffort = "medium"
     timeout_seconds: float = 120.0
     max_retries: int = 2
 
 
-class SandboxConfig(BaseModel):
+class CompactionSettings(BaseModel):
+    enabled: bool = True
+    context_window_tokens: int | None = Field(default=None, ge=128)
+    trigger_fraction: float = Field(default=0.8, gt=0.0, lt=1.0)
+    retain_tokens: int = Field(default=32_000, ge=0)
+    summary_max_tokens: int = Field(default=8_000, gt=0)
+
+
+class SandboxSettings(BaseModel):
     image: str = "vaulty-sandbox:latest"
     timeout_seconds: float = 60.0
     max_output_bytes: int = 256 * 1024
@@ -29,9 +37,9 @@ class SandboxConfig(BaseModel):
 
 class Config(BaseModel):
     root: Path = Path(r"C:\obsidian\database")
-    max_steps: int = 20
-    llm: LLMConfig = LLMConfig()
-    sandbox: SandboxConfig = SandboxConfig()
+    llm: LLMSettings = Field(default_factory=LLMSettings)
+    compaction: CompactionSettings = Field(default_factory=CompactionSettings)
+    sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
 
 
 def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:

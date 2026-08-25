@@ -19,10 +19,15 @@ class ToolFinished:
 
 
 @dataclass(slots=True)
+class ContextCompacted:
+    before_tokens: int
+    after_tokens: int
+
+
+@dataclass(slots=True)
 class TurnEnded:
     text: str
     steps: int
-    stopped_early: bool = False
 
 
-type AgentEvent = TextDelta | ToolStarted | ToolFinished | TurnEnded
+type AgentEvent = TextDelta | ToolStarted | ToolFinished | ContextCompacted | TurnEnded
