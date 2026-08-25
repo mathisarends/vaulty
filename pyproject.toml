@@ -11,6 +11,9 @@ dependencies = [
     "pydantic-settings>=2.15.0",
 ]
 
+[project.scripts]
+vaulty = "vaulty:main"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.2",
