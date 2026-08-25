@@ -8,13 +8,13 @@ from llmify import Function, StreamEnd, StreamTextDelta, ToolCall
 from tests.test_tools import FakeRunner
 from vaulty import (
     Agent,
-    CompactionSettings,
     ContextCompacted,
     TextDelta,
     ToolFinished,
     ToolStarted,
     TurnEnded,
 )
+from vaulty.config import CompactionSettings
 from vaulty.tools import Dependencies, build_tools
 
 
