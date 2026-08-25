@@ -12,7 +12,7 @@ inside a locked-down Docker container.
 | `vaulty/llm.py` | `ChatCodex` (gpt-5.6-luna) via Codex-CLI-Login, konfigurierbar über `VAULTY_*` env vars |
 | `vaulty/sandbox.py` | `DockerSandbox`: read-only rootfs, workspace bind-mounted at `/workspace` |
 | `vaulty/tools.py` | `Dependencies` provider + `read_file`, `write_file`, `edit_file`, `list_dir`, `glob`, `grep`, `bash`, `list_skills`, `skill` |
-| `vaulty/agents.py` | `vaulty/` im Workspace: `AGENTS.md` + Skills-Registry aus dem agenttoolkit |
+| `vaulty/agents.py` | `VAULTY/` im Workspace: `AGENTS.md` + Skills-Registry aus dem agenttoolkit |
 | `vaulty/agent/` | Agent loop, `SystemPrompt` (Basistext + Workspace-Sektionen) und loss-aware context compaction |
 | `main.py` | Terminal chat: streams the answer live and prints every tool call with its result |
 
@@ -49,14 +49,14 @@ Requires a logged-in Codex CLI (`~/.codex/auth.json`) and a running Docker daemo
 Settings: `VAULTY_MODEL`, `VAULTY_REASONING_EFFORT`, `VAULTY_TIMEOUT_SECONDS`,
 `VAULTY_MAX_RETRIES` (env or `.env`).
 
-## Workspace configuration (`vaulty/`)
+## Workspace configuration (`VAULTY/`)
 
 Where a code repo keeps its agent setup next to the source, Vaulty keeps it
-inside the workspace itself — by default `<root>/vaulty/`, so in the Obsidian
-vault at `C:\obsidian\database\vaulty\`:
+inside the workspace itself — by default `<root>/VAULTY/`, so in the Obsidian
+vault at `C:\obsidian\database\VAULTY\`:
 
 ```text
-vaulty/
+VAULTY/
   AGENTS.md                    standing instructions, loaded into every system prompt
   skills/
     weekly-review/SKILL.md     one directory per skill, name must match the directory
@@ -69,7 +69,7 @@ missing, together with an `AGENTS.md` template. Change the location in
 
 ```yaml
 agents:
-  directory: vaulty
+  directory: VAULTY
   skills_dirname: skills
   instructions_filename: AGENTS.md
 ```

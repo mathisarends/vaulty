@@ -1,4 +1,4 @@
-from vaulty.agent import (
+from .agent import (
     Agent,
     AgentEvent,
     ContextCompacted,
@@ -8,8 +8,8 @@ from vaulty.agent import (
     ToolStarted,
     TurnEnded,
 )
-from vaulty.agents import AgentsHome, open_agents_home
-from vaulty.config import (
+from .agents import AgentsHome, open_agents_home
+from .config import (
     AgentsSettings,
     CompactionSettings,
     Config,
@@ -18,9 +18,9 @@ from vaulty.config import (
     load_config,
     load_environment,
 )
-from vaulty.llm import build_llm
-from vaulty.sandbox import build_sandbox, open_sandbox
-from vaulty.tools import Dependencies, build_tools
+from .llm import build_llm
+from .sandbox import build_sandbox, open_sandbox
+from .tools import Dependencies, build_tools
 
 __all__ = [
     "Agent",

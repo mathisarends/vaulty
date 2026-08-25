@@ -16,7 +16,8 @@ from llmify import (
 )
 
 from vaulty.agent.compaction import ConversationCompactor
-from vaulty.agent.models import (
+from vaulty.agent.prompt import SystemPrompt
+from vaulty.agent.views import (
     AgentEvent,
     ContextCompacted,
     TextDelta,
@@ -24,7 +25,6 @@ from vaulty.agent.models import (
     ToolStarted,
     TurnEnded,
 )
-from vaulty.agent.prompt import SystemPrompt
 from vaulty.config import CompactionSettings
 
 logger = logging.getLogger(__name__)
