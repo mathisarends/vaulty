@@ -82,7 +82,7 @@ async def _main(args: argparse.Namespace) -> None:
     ) as sandbox:
         tools = build_tools(Dependencies(workspace, sandbox))
         agent = Agent(build_llm(), tools, max_steps=args.max_steps)
-        await chat(agent, str(workspace.root))
+        await chat(agent)
 
 
 def main() -> None:
