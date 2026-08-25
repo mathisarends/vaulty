@@ -11,6 +11,10 @@ from agenttoolkit.builtins.fs import Workspace
 from agenttoolkit.builtins.shell import CommandRunner
 
 BUDGET = OutputBudget()
+LIST_LIMIT = 500
+GREP_LIMIT = 200
+# headroom so hidden matches do not eat into the visible ones
+GREP_SCAN_LIMIT = GREP_LIMIT * 5
 
 
 class Dependencies(DependencyProvider):
@@ -61,28 +65,37 @@ def build_tools(
         count = await workspace.edit_file(path, old, new, replace_all=replace_all)
         return f"replaced {count} occurrence(s) in {path}"
 
-    @tools.tool("List a directory in the workspace, optionally recursively.")
+    @tools.tool(
+        "List a directory in the workspace, optionally recursively. "
+        "Hidden files and directories (e.g. .obsidian, .git) are skipped."
+    )
     async def list_dir(
         workspace: Inject[Workspace],
         path: str = ".",
         recursive: bool = False,
     ) -> str:
-        entries = await workspace.list_dir(path, recursive=recursive, limit=500)
-        if not entries:
+        entries = await workspace.list_dir(path, recursive=recursive)
+        visible = [e for e in entries if not _is_hidden(e.path)][:LIST_LIMIT]
+        if not visible:
             return f"{path} is empty"
-        lines = [f"{'d' if entry.is_dir else 'f'} {entry.path}" for entry in entries]
+        lines = [f"{'d' if entry.is_dir else 'f'} {entry.path}" for entry in visible]
         return budget.shape("\n".join(lines))
 
-    @tools.tool("Find files by glob pattern, e.g. 'src/**/*.py'.")
+    @tools.tool(
+        "Find files by glob pattern, e.g. 'src/**/*.py'. "
+        "Hidden files and directories (e.g. .obsidian, .git) are skipped."
+    )
     async def glob(pattern: str, workspace: Inject[Workspace]) -> str:
         entries = await workspace.glob(pattern)
-        if not entries:
+        visible = [e for e in entries if not _is_hidden(e.path)]
+        if not visible:
             return f"no matches for {pattern}"
-        return budget.shape("\n".join(entry.path for entry in entries))
+        return budget.shape("\n".join(entry.path for entry in visible))
 
     @tools.tool(
         "Search file contents with a regular expression. "
-        "Optionally restrict the search to files matching a glob."
+        "Optionally restrict the search to files matching a glob. "
+        "Hidden files and directories (e.g. .obsidian, .git) are skipped."
     )
     async def grep(
         pattern: str,
@@ -94,11 +107,12 @@ def build_tools(
             pattern,
             glob=glob,
             case_sensitive=case_sensitive,
-            max_matches=200,
+            max_matches=GREP_SCAN_LIMIT,
         )
-        if not matches:
+        visible = [m for m in matches if not _is_hidden(m.path)][:GREP_LIMIT]
+        if not visible:
             return f"no matches for {pattern}"
-        lines = [f"{m.path}:{m.line_number}: {m.line}" for m in matches]
+        lines = [f"{m.path}:{m.line_number}: {m.line}" for m in visible]
         return budget.shape("\n".join(lines))
 
     @tools.tool(
@@ -115,3 +129,7 @@ def build_tools(
         return f"exit code: {result.exit_code}\n{output}"
 
     return tools
+
+
+def _is_hidden(path: str) -> bool:
+    return any(part.startswith(".") for part in path.replace("\\", "/").split("/"))
