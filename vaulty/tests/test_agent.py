@@ -3,7 +3,14 @@ import json
 from types import SimpleNamespace
 
 from agenttoolkit.builtins.fs import LocalWorkspace
-from llmify import Function, StreamEnd, StreamTextDelta, ToolCall
+from llmify import (
+    AssistantMessage,
+    Function,
+    StreamEnd,
+    StreamTextDelta,
+    ToolCall,
+    UserMessage,
+)
 
 from tests.test_tools import FakeRunner
 from vaulty import (
@@ -55,11 +62,11 @@ def collect(agent, task):
     return asyncio.run(drain())
 
 
-def build_agent(rounds, tmp_path, *, compaction=None, summaries=None):
+def build_agent(rounds, tmp_path, *, compaction=None, summaries=None, messages=()):
     workspace = LocalWorkspace(tmp_path)
     tools = build_tools(Dependencies(workspace, FakeRunner(commands=[])))
     llm = ScriptedLLM(rounds, summaries)
-    return Agent(llm, tools, compaction=compaction), workspace, llm
+    return Agent(llm, tools, compaction=compaction, messages=messages), workspace, llm
 
 
 def test_text_only_turn_streams_deltas_and_ends(tmp_path):
@@ -104,6 +111,60 @@ def test_history_survives_across_turns(tmp_path):
 
     roles = [message.role for message in agent.messages]
     assert roles == ["system", "user", "assistant", "user", "assistant"]
+
+
+def test_initial_messages_restore_conversation_before_new_task(tmp_path):
+    history = [
+        UserMessage(content="remember this"),
+        AssistantMessage(content="remembered"),
+    ]
+    agent, _, llm = build_agent([(["continued"], [])], tmp_path, messages=history)
+
+    collect(agent, "continue")
+
+    assert [message.role for message in llm.seen_messages[0]] == [
+        "system",
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert llm.seen_messages[0][-1].content == "continue"
+
+
+def test_run_injects_messages_before_new_task(tmp_path):
+    agent, _, llm = build_agent([(["done"], [])], tmp_path)
+
+    async def drain():
+        context = [
+            UserMessage(content="external question"),
+            AssistantMessage(content="external answer"),
+        ]
+        return [event async for event in agent.run("next", messages=context)]
+
+    asyncio.run(drain())
+
+    assert [message.content for message in llm.seen_messages[0][1:]] == [
+        "external question",
+        "external answer",
+        "next",
+    ]
+
+
+def test_run_can_continue_from_injected_messages_without_new_task(tmp_path):
+    agent, _, llm = build_agent([(["continued"], [])], tmp_path)
+
+    async def drain():
+        return [
+            event
+            async for event in agent.run(
+                messages=[UserMessage(content="injected request")]
+            )
+        ]
+
+    events = asyncio.run(drain())
+
+    assert llm.seen_messages[0][-1].content == "injected request"
+    assert events[-1] == TurnEnded("continued", 1)
 
 
 def test_tool_loop_runs_until_the_model_finishes(tmp_path):

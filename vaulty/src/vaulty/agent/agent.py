@@ -1,6 +1,6 @@
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 
 from agenttoolkit import Tools, ToolSchemaFormat
 from llmify import (
@@ -38,11 +38,15 @@ class Agent:
         *,
         system_prompt: SystemPrompt | None = None,
         compaction: CompactionSettings | None = None,
+        messages: Iterable[Message] = (),
     ) -> None:
         self._llm = llm
         self._tools = tools
         prompt = system_prompt or SystemPrompt(read_base_prompt())
-        self._messages: list[Message] = [SystemMessage(content=prompt.render())]
+        self._messages: list[Message] = [
+            SystemMessage(content=prompt.render()),
+            *messages,
+        ]
         self._compactor = ConversationCompactor(
             llm,
             compaction or CompactionSettings(),
@@ -53,8 +57,20 @@ class Agent:
     def messages(self) -> list[Message]:
         return self._messages
 
-    async def run(self, task: str) -> AsyncIterator[AgentEvent]:
-        self._messages.append(UserMessage(content=task))
+    async def run(
+        self,
+        task: str | None = None,
+        *,
+        messages: Iterable[Message] = (),
+    ) -> AsyncIterator[AgentEvent]:
+        """Run from the current history after injecting optional context messages.
+
+        ``messages`` are appended before ``task``. Omitting ``task`` lets callers
+        continue directly from an externally supplied conversation checkpoint.
+        """
+        self._messages.extend(messages)
+        if task is not None:
+            self._messages.append(UserMessage(content=task))
         schemas = self._tools.get_schema(ToolSchemaFormat.OPENAI)
 
         step = 0

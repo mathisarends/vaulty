@@ -42,6 +42,27 @@ async for event in agent.run("summarise the repo layout"):
             print(name, arguments)
 ```
 
+Existing conversation history can be restored when the agent is created, or
+injected immediately before a later run. Injected messages are placed before an
+optional new user task:
+
+```python
+from llmify import AssistantMessage, UserMessage
+
+history = [
+    UserMessage(content="Remember this repository."),
+    AssistantMessage(content="I will."),
+]
+agent = Agent(llm, tools, messages=history)
+
+async for event in agent.run("Continue where we left off"):
+    ...
+
+# A caller may also provide the next message and continue without adding a task.
+async for event in agent.run(messages=[UserMessage(content="Now inspect tests")]):
+    ...
+```
+
 The workspace defaults to the Obsidian vault at `C:\obsidian\database`;
 override it with `--root` or the `VAULTY_ROOT` environment variable.
 
