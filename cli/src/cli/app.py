@@ -6,6 +6,8 @@ from agenttoolkit.builtins.fs import LocalWorkspace
 from rich.console import Console
 
 from cli.terminal import TerminalChat
+from runtime import SessionRunner
+from storage import SessionTrigger, SqliteSessionRepository
 from vaulty.agent import Agent, SystemPrompt, read_base_prompt
 from vaulty.config import (
     DEFAULT_CONFIG_PATH,
@@ -47,6 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def run(config: Config, console: Console) -> None:
     workspace = LocalWorkspace(config.root)
+    config.sessions.database.parent.mkdir(parents=True, exist_ok=True)
+    repository = SqliteSessionRepository(config.sessions.database)
+
     async with open_sandbox(workspace.root, config.sandbox) as sandbox:
         tools = build_tools(Dependencies(workspace, sandbox))
         agent = Agent(
@@ -55,8 +60,11 @@ async def run(config: Config, console: Console) -> None:
             system_prompt=SystemPrompt(base=read_base_prompt()),
             compaction=config.compaction,
         )
+        runner = await SessionRunner.start(
+            agent, repository, trigger=SessionTrigger.CLI
+        )
         await TerminalChat(
-            agent,
+            runner,
             console,
             workspace=Path(workspace.root),
             model=config.llm.model.value,

@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 from runtime.messages import to_storage
 from storage import Session, SessionRepository, SessionStatus, SessionTrigger
-from vaulty.agent import Agent, AgentEvent
+from vaulty.agent import Agent, AgentEvent, ContextCompacted
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ class SessionRunner:
         self._repository = repository
         self._session = session
         self._clock = clock
+        self._failed = False
         # Everything the agent already holds came out of `session`, so only
         # messages appended from here on still need to be written.
         self._persisted = len(agent.messages)
@@ -94,8 +95,15 @@ class SessionRunner:
         async for event in self._guard(self._agent.resume()):
             yield event
 
+    async def compact(self) -> ContextCompacted | None:
+        """Compact the agent's context now. See the known issue in `_save`."""
+        return await self._agent.compact()
+
     async def finish(self) -> None:
-        await self._save(SessionStatus.FINISHED)
+        """Hand the session back, keeping the outcome of the last turn."""
+        await self._save(
+            SessionStatus.FAILED if self._failed else SessionStatus.FINISHED
+        )
 
     async def _guard(
         self, events: AsyncIterator[AgentEvent]
@@ -104,8 +112,10 @@ class SessionRunner:
             async for event in events:
                 yield event
         except Exception:
+            self._failed = True
             await self._save(SessionStatus.FAILED)
             raise
+        self._failed = False
         await self._save(SessionStatus.RUNNING)
 
     async def _save(self, status: SessionStatus) -> None:

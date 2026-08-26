@@ -11,8 +11,8 @@ from rich.padding import Padding
 from rich.table import Table
 from rich.text import Text
 
+from runtime import SessionRunner
 from vaulty.agent import (
-    Agent,
     ContextCompacted,
     TextDelta,
     ToolFinished,
@@ -93,13 +93,13 @@ def _format_arguments(arguments: dict) -> str:
 class TerminalChat:
     def __init__(
         self,
-        agent: Agent,
+        runner: SessionRunner,
         console: Console,
         *,
         workspace: Path,
         model: str,
     ) -> None:
-        self._agent = agent
+        self._runner = runner
         self._console = console
         self._workspace = workspace
         self._model = model
@@ -107,6 +107,12 @@ class TerminalChat:
 
     async def run(self) -> None:
         self._welcome()
+        try:
+            await self._loop()
+        finally:
+            await self._runner.finish()
+
+    async def _loop(self) -> None:
         while True:
             try:
                 task = (
@@ -164,7 +170,7 @@ class TerminalChat:
 
     async def _compact_now(self) -> None:
         with self._console.status("[dim]Compacting context…[/dim]", spinner="dots"):
-            result = await self._agent.compact()
+            result = await self._runner.compact()
         if result is None:
             self._console.print("[dim]Nothing to compact.[/dim]")
             return
@@ -187,7 +193,7 @@ class TerminalChat:
         return True
 
     async def _turn(self, task: str) -> None:
-        async for event in self._agent.run(task):
+        async for event in self._runner.run(task):
             match event:
                 case TextDelta(text):
                     self._write_text(text)

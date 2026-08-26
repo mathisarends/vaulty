@@ -49,6 +49,17 @@ class SchedulerSettings(BaseModel):
     tasks: tuple[ScheduledTaskSettings, ...] = ()
 
 
+class SessionSettings(BaseModel):
+    """Where conversation transcripts live.
+
+    Both frontends read and write this database - the CLI to show and
+    resume past sessions, the daemon to record its cron runs. Relative
+    paths resolve against the working directory, not the workspace root.
+    """
+
+    database: Path = Path(".vaulty/sessions.db")
+
+
 class SandboxSettings(BaseModel):
     image: str = "vaulty-sandbox:latest"
     timeout_seconds: float = 60.0
@@ -64,6 +75,7 @@ class Config(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     compaction: CompactionSettings = Field(default_factory=CompactionSettings)
     scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
+    sessions: SessionSettings = Field(default_factory=SessionSettings)
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
 
 

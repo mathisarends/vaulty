@@ -23,6 +23,10 @@ scheduler:
       cron: "0 4 * * *"
       prompt: Read Daily Review Instructions and follow the instructions
 
+sessions:
+  # Conversation transcripts, shared by the CLI and the daemon.
+  database: .vaulty/sessions.db
+
 sandbox:
   image: vaulty-sandbox:latest
   timeout_seconds: 60
