@@ -14,7 +14,8 @@ inside a locked-down Docker container.
 | `vaulty/tools/` | Semantisch getrennte File-, Shell-, Skill- und Todo-Tools sowie Dependency Wiring |
 | `vaulty/agents.py` | `DOT.VAULTY/` im Workspace: `AGENTS.md` + Skills-Registry aus dem agenttoolkit |
 | `vaulty/agent/` | Agent loop, `SystemPrompt` (Basistext + Workspace-Sektionen) und loss-aware context compaction |
-| `vaulty/main.py` | Terminal chat: streams the answer live and prints every tool call with its result |
+| `vaulty/cli/` | Terminal client: commands, streamed answers, tool activity and checklist rendering |
+| `vaulty/main.py` | Backward-compatible shim for `python -m vaulty.main` |
 
 ## Usage
 
@@ -23,13 +24,25 @@ uv run vaulty
 ```
 
 ```text
-you > leg eine notes.md an
+Vaulty interactive agent
+Workspace  C:\obsidian\database
+Model      gpt-5.6-luna
 
-Ich schaue mir das an.
-• write_file(path='notes.md', content='hello world')
-  wrote notes.md (11 chars)
-Datei ist geschrieben.
+you › plan und erledige zwei Schritte
+
+  • add_todos  items="['Notiz anlegen', 'Ergebnis prüfen']"
+    Checklist
+    [ ]  1  Notiz anlegen
+    [ ]  2  Ergebnis prüfen
+
+  • check_off  item='1'
+    Checklist
+    [x]  1  Notiz anlegen
+    [ ]  2  Ergebnis prüfen
 ```
+
+Local commands are `/help`, `/clear`, and `/exit`. Use `--root PATH` to override
+the configured workspace for one session and `--no-color` for plain output.
 
 ```python
 from vaulty import Agent, Dependencies, TextDelta, ToolStarted, build_llm, build_tools

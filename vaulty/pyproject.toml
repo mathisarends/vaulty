@@ -10,10 +10,11 @@ dependencies = [
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.3",
     "pyyaml>=6.0.3",
+    "rich>=14.2.0",
 ]
 
 [project.scripts]
-vaulty = "vaulty.main:main"
+vaulty = "vaulty.cli:main"
 
 [build-system]
 requires = ["hatchling"]
