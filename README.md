@@ -1,4 +1,4 @@
-# vault-gardener
+# vaulty
 
 Vaulty is an agent that tends an [Obsidian](https://obsidian.md) vault. It runs
 interactively from a terminal, or nightly on a cron schedule, and gets file
