@@ -4,7 +4,12 @@ from uuid import uuid4
 
 import pytest
 
-from storage import AssistantMessage, MemorySessionRepository, UserMessage
+from storage import (
+    AssistantMessage,
+    MemorySessionRepository,
+    SessionTrigger,
+    UserMessage,
+)
 
 
 def test_create_append_save_round_trips() -> None:
@@ -16,7 +21,7 @@ def test_create_append_save_round_trips() -> None:
         assert await repository.get(id) is None
 
         session = await repository.create(
-            id, now, trigger="cli", title="Tend the vault"
+            id, now, trigger=SessionTrigger.CLI, title="Tend the vault"
         )
         session = session.append(UserMessage(content="hi", created_at=now))
         session = session.append(
@@ -42,7 +47,9 @@ def test_save_without_create_raises() -> None:
     async def scenario() -> None:
         repository = MemorySessionRepository()
         id = uuid4()
-        session = await repository.create(id, datetime.now(UTC), trigger="cli")
+        session = await repository.create(
+            id, datetime.now(UTC), trigger=SessionTrigger.CLI
+        )
         await repository.delete(id)
 
         with pytest.raises(KeyError, match="does not exist"):
@@ -57,9 +64,9 @@ def test_create_twice_raises() -> None:
         id = uuid4()
         now = datetime.now(UTC)
 
-        await repository.create(id, now, trigger="cli")
+        await repository.create(id, now, trigger=SessionTrigger.CLI)
         with pytest.raises(ValueError, match="already exists"):
-            await repository.create(id, now, trigger="cli")
+            await repository.create(id, now, trigger=SessionTrigger.CLI)
 
     asyncio.run(scenario())
 
@@ -69,9 +76,9 @@ def test_list_orders_by_created_at_desc_and_respects_limit() -> None:
         repository = MemorySessionRepository()
         now = datetime.now(UTC)
 
-        older = await repository.create(uuid4(), now, trigger="cli")
+        older = await repository.create(uuid4(), now, trigger=SessionTrigger.CLI)
         newer = await repository.create(
-            uuid4(), now + timedelta(seconds=1), trigger="cron"
+            uuid4(), now + timedelta(seconds=1), trigger=SessionTrigger.CRON
         )
 
         assert await repository.list() == (newer, older)

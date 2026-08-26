@@ -7,6 +7,7 @@ import pytest
 
 from storage import (
     AssistantMessage,
+    SessionTrigger,
     SqliteSessionRepository,
     ToolCall,
     ToolCallMessage,
@@ -23,7 +24,7 @@ def test_sqlite_repository_persists_session_across_reopen(tmp_path: Path) -> Non
 
         repository = SqliteSessionRepository(database)
         session = await repository.create(
-            id, now, trigger="cli", title="Tend the vault"
+            id, now, trigger=SessionTrigger.CLI, title="Tend the vault"
         )
         session = session.append(UserMessage(content="hi", created_at=now))
         session = session.append(
@@ -41,13 +42,15 @@ def test_sqlite_repository_persists_session_across_reopen(tmp_path: Path) -> Non
         )
         await repository.save(session)
 
-        await repository.create(other_id, now + timedelta(seconds=3), trigger="cron")
+        await repository.create(
+            other_id, now + timedelta(seconds=3), trigger=SessionTrigger.CRON
+        )
 
         reopened = SqliteSessionRepository(database)
         stored = await reopened.get(id)
         assert stored is not None
         assert stored.title == "Tend the vault"
-        assert stored.trigger == "cli"
+        assert stored.trigger == SessionTrigger.CLI
         assert stored.created_at == now
 
         user, assistant, tool = stored.messages
@@ -74,7 +77,9 @@ def test_save_without_create_raises(tmp_path: Path) -> None:
     async def scenario() -> None:
         repository = SqliteSessionRepository(tmp_path / "sessions.db")
         id = uuid4()
-        session = await repository.create(id, datetime.now(UTC), trigger="cli")
+        session = await repository.create(
+            id, datetime.now(UTC), trigger=SessionTrigger.CLI
+        )
         await repository.delete(id)
 
         with pytest.raises(KeyError, match="does not exist"):

@@ -12,7 +12,7 @@ session currently holds (title and messages) in one shot.
 repository = SqliteSessionRepository(db_path)
 
 session = await repository.create(
-    uuid4(), datetime.now(UTC), trigger="cli", title="Tend the vault"
+    uuid4(), datetime.now(UTC), trigger=SessionTrigger.CLI, title="Tend the vault"
 )
 session = session.append(
     UserMessage(content="tidy up the vault", created_at=datetime.now(UTC))
@@ -35,7 +35,7 @@ recent = await repository.list(limit=20)  # most recently created first
 - `SessionRepository` — the port: async `create`/`save`/`get`/`list`/`delete`.
   `create` registers a session (with its trigger, title, and creation time)
   and returns it; `save` raises `KeyError` if the session doesn't exist yet.
-- `trigger` (`"cron"` | `"cli"`) records what started the session.
+- `SessionTrigger` (`CRON` | `CLI`) records what started the session.
 - `MemorySessionRepository` — for tests/ephemeral processes.
 - `SqliteSessionRepository` — for durable storage. Serializes the three
   message types itself, so no host-provided codec is needed.

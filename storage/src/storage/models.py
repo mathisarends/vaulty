@@ -1,5 +1,6 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal, Self
 from uuid import UUID
 
@@ -36,7 +37,10 @@ class ToolCallMessage:
 
 type ChatMessage = UserMessage | AssistantMessage | ToolCallMessage
 
-type SessionTrigger = Literal["cron", "cli"]
+
+class SessionTrigger(StrEnum):
+    CRON = "cron"
+    CLI = "cli"
 
 
 @dataclass(frozen=True, slots=True)

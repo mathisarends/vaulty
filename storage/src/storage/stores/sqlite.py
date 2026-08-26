@@ -181,7 +181,7 @@ def _build_session(
     return Session(
         id=id,
         title=cast(str | None, row["title"]),
-        trigger=cast(SessionTrigger, row["trigger"]),
+        trigger=SessionTrigger(row["trigger"]),
         created_at=datetime.fromisoformat(cast(str, row["created_at"])),
         messages=messages,
     )
