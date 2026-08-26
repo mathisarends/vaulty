@@ -1,6 +1,8 @@
 import argparse
 import asyncio
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from agenttoolkit.builtins.fs import LocalWorkspace
 from rich.console import Console
@@ -63,11 +65,17 @@ async def run(config: Config, console: Console) -> None:
         runner = await SessionRunner.start(
             agent, repository, trigger=SessionTrigger.CLI
         )
+
+        def metadata(name: str) -> Mapping[str, Any]:
+            tool = tools.get(name)
+            return tool.extra if tool is not None else {}
+
         await TerminalChat(
             runner,
             console,
             workspace=Path(workspace.root),
             model=config.llm.model.value,
+            metadata=metadata,
         ).run()
 
 

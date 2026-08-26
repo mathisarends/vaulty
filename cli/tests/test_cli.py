@@ -1,9 +1,11 @@
+from datetime import UTC, datetime
 from io import StringIO
 from typing import cast
 
 import llmify
 from rich.console import Console
 
+import storage
 from cli.app import build_parser
 from cli.terminal import TerminalChat, checklist_renderable, parse_checklist
 from runtime import SessionRunner
@@ -99,3 +101,40 @@ async def test_the_terminal_records_its_turns_and_closes_the_session(tmp_path):
     assert [message.role for message in stored.messages] == ["user", "assistant"]
     assert stored.title == "tidy up the vault"
     assert stored.status is SessionStatus.FINISHED
+
+
+def test_a_stored_transcript_renders_like_a_live_turn(tmp_path):
+    now = datetime.now(UTC)
+    output = StringIO()
+    console = Console(file=output, no_color=True, width=80)
+    terminal = TerminalChat(
+        cast(SessionRunner, object()),
+        console,
+        workspace=tmp_path,
+        model="test",
+        metadata=lambda name: {"terminal_renderer": "checklist"},
+    )
+
+    terminal.show(
+        (
+            storage.UserMessage(content="plan two steps", created_at=now),
+            storage.AssistantMessage(
+                content="on it",
+                tool_calls=(
+                    storage.ToolCall(id="1", name="add_todos", arguments="{}"),
+                ),
+                created_at=now,
+            ),
+            storage.ToolCallMessage(
+                tool_call_id="1",
+                content="1. [ ] Notiz anlegen",
+                created_at=now,
+            ),
+        )
+    )
+
+    rendered = output.getvalue()
+    assert "you › plan two steps" in rendered
+    assert "on it" in rendered
+    assert "add_todos" in rendered
+    assert "Checklist" in rendered and "Notiz anlegen" in rendered

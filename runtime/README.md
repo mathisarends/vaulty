@@ -36,6 +36,23 @@ for a cron session picked up weeks later.
 The runner writes after each turn and only appends what the agent gained
 since the last write, so timestamps of older messages stay put.
 
+## Replaying a transcript
+
+`replay(messages)` turns a stored conversation back into the events a live
+turn would have emitted, so a frontend renders history with the code it
+already has instead of growing a second renderer that drifts from the
+first. One event is added on top of `AgentEvent`: the agent never emits
+the user's own prompts, but a transcript has to show them.
+
+```python
+for event in replay(session.messages, metadata=lookup):
+    render(event)  # the same render the live stream goes through
+```
+
+`metadata` supplies what a live `ToolFinished` carries - pass a lookup
+into the tool registry and a replayed tool renders exactly as it did
+while it ran.
+
 ## Known issue: compaction duplicates history
 
 Compaction rewrites the agent's message list in place - older turns are

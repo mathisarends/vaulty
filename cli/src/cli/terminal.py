@@ -1,7 +1,7 @@
 import asyncio
 import difflib
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,7 +11,14 @@ from rich.padding import Padding
 from rich.table import Table
 from rich.text import Text
 
-from runtime import SessionRunner
+import storage
+from runtime import (
+    MetadataLookup,
+    SessionRunner,
+    TranscriptEvent,
+    UserPrompt,
+    replay,
+)
 from vaulty.agent import (
     ContextCompacted,
     TextDelta,
@@ -27,6 +34,10 @@ _COMMANDS = {
     "/help": "show local commands",
     "/exit": "leave Vaulty",
 }
+
+
+def _no_metadata(name: str) -> Mapping[str, Any]:
+    return {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,8 +109,10 @@ class TerminalChat:
         *,
         workspace: Path,
         model: str,
+        metadata: MetadataLookup = _no_metadata,
     ) -> None:
         self._runner = runner
+        self._metadata = metadata
         self._console = console
         self._workspace = workspace
         self._model = model
@@ -192,23 +205,35 @@ class TerminalChat:
             self._console.print("[dim]Type /help to list local commands.[/dim]")
         return True
 
+    def show(self, messages: Iterable[storage.ChatMessage]) -> None:
+        """Print a stored conversation through the live renderer."""
+        for event in replay(messages, metadata=self._metadata):
+            self._render(event)
+        self._finish_stream()
+
     async def _turn(self, task: str) -> None:
         async for event in self._runner.run(task):
-            match event:
-                case TextDelta(text):
-                    self._write_text(text)
-                case ToolStarted(name, arguments):
-                    self._tool_started(name, arguments)
-                case ToolFinished(name, result, metadata):
-                    self._tool_finished(name, result, metadata)
-                case ContextCompacted(before_tokens, after_tokens):
-                    self._finish_stream()
-                    self._console.print(
-                        "[dim]↻ Context compacted: "
-                        f"{before_tokens:,} → {after_tokens:,} estimated tokens[/dim]"
-                    )
-                case TurnEnded(_, _):
-                    self._finish_stream()
+            self._render(event)
+
+    def _render(self, event: TranscriptEvent) -> None:
+        match event:
+            case UserPrompt(text):
+                self._finish_stream()
+                self._console.print(f"[bold cyan]you[/] [dim]›[/] {text}")
+            case TextDelta(text):
+                self._write_text(text)
+            case ToolStarted(name, arguments):
+                self._tool_started(name, arguments)
+            case ToolFinished(name, result, metadata):
+                self._tool_finished(name, result, metadata)
+            case ContextCompacted(before_tokens, after_tokens):
+                self._finish_stream()
+                self._console.print(
+                    "[dim]↻ Context compacted: "
+                    f"{before_tokens:,} → {after_tokens:,} estimated tokens[/dim]"
+                )
+            case TurnEnded(_, _):
+                self._finish_stream()
 
     def _write_text(self, text: str) -> None:
         if not self._streaming:
