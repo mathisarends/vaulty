@@ -22,7 +22,7 @@ members = [
     "scheduler",
     "daemon",
     "github",
-    "transcripts",
+    "storage",
 ]
 
 [tool.uv.sources]
@@ -30,7 +30,7 @@ vaulty = { workspace = true }
 scheduler = { workspace = true }
 daemon = { workspace = true }
 github = { workspace = true }
-transcripts = { workspace = true }
+storage = { workspace = true }
 
 [tool.ruff]
 line-length = 88
@@ -40,4 +40,4 @@ target-version = "py313"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["vaulty", "scheduler", "daemon", "github", "transcripts"]
+known-first-party = ["vaulty", "scheduler", "daemon", "github", "storage"]

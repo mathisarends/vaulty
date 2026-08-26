@@ -1,7 +1,7 @@
 [project]
-name = "transcripts"
+name = "storage"
 version = "0.1.0"
-description = "Async storage for agent conversation transcripts."
+description = "Async storage for agent conversation sessions."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
@@ -18,7 +18,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/transcripts"]
+packages = ["src/storage"]
 
 [tool.ruff]
 extend = "../pyproject.toml"

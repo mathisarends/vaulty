@@ -8,39 +8,41 @@ from uuid import UUID
 
 import aiosqlite
 
-from transcripts.models import (
+from storage.models import (
     AssistantMessage,
     ChatMessage,
+    Session,
+    SessionTrigger,
     ToolCall,
     ToolCallMessage,
-    Transcript,
     UserMessage,
 )
-from transcripts.ports import TranscriptRepository
+from storage.ports import SessionRepository
 
-_CREATE_TRANSCRIPTS_TABLE = """
-CREATE TABLE IF NOT EXISTS transcripts (
+_CREATE_SESSIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     title TEXT,
+    trigger TEXT NOT NULL,
     created_at TEXT NOT NULL
 )
 """
 _CREATE_MESSAGES_TABLE = """
-CREATE TABLE IF NOT EXISTS transcript_messages (
+CREATE TABLE IF NOT EXISTS session_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    transcript_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
     role TEXT NOT NULL,
     data TEXT NOT NULL,
     created_at TEXT NOT NULL
 )
 """
 _CREATE_MESSAGES_INDEX = """
-CREATE INDEX IF NOT EXISTS transcript_messages_transcript_id_idx
-ON transcript_messages (transcript_id)
+CREATE INDEX IF NOT EXISTS session_messages_session_id_idx
+ON session_messages (session_id)
 """
 
 
-class SqliteTranscriptRepository(TranscriptRepository):
+class SqliteSessionRepository(SessionRepository):
     def __init__(self, database: str | Path) -> None:
         self._database = database
 
@@ -49,45 +51,54 @@ class SqliteTranscriptRepository(TranscriptRepository):
         id: UUID,
         created_at: datetime,
         *,
+        trigger: SessionTrigger,
         title: str | None = None,
-    ) -> Transcript:
-        query = "INSERT INTO transcripts (id, title, created_at) VALUES (?, ?, ?)"
+    ) -> Session:
+        query = (
+            "INSERT INTO sessions (id, title, trigger, created_at) VALUES (?, ?, ?, ?)"
+        )
         async with self._connection() as connection:
             try:
                 await connection.execute(
-                    query, (str(id), title, created_at.astimezone(UTC).isoformat())
+                    query,
+                    (
+                        str(id),
+                        title,
+                        trigger,
+                        created_at.astimezone(UTC).isoformat(),
+                    ),
                 )
                 await connection.commit()
             except aiosqlite.IntegrityError as error:
-                raise ValueError(f"Transcript {id!r} already exists") from error
-        return Transcript(id=id, created_at=created_at, title=title)
+                raise ValueError(f"Session {id!r} already exists") from error
+        return Session(id=id, created_at=created_at, trigger=trigger, title=title)
 
-    async def save(self, transcript: Transcript) -> None:
+    async def save(self, session: Session) -> None:
         async with self._connection() as connection:
             cursor = await connection.execute(
-                "UPDATE transcripts SET title = ?, created_at = ? WHERE id = ?",
+                "UPDATE sessions SET title = ?, created_at = ? WHERE id = ?",
                 (
-                    transcript.title,
-                    transcript.created_at.astimezone(UTC).isoformat(),
-                    str(transcript.id),
+                    session.title,
+                    session.created_at.astimezone(UTC).isoformat(),
+                    str(session.id),
                 ),
             )
             if cursor.rowcount == 0:
-                raise KeyError(f"Transcript {transcript.id!r} does not exist")
+                raise KeyError(f"Session {session.id!r} does not exist")
 
             await connection.execute(
-                "DELETE FROM transcript_messages WHERE transcript_id = ?",
-                (str(transcript.id),),
+                "DELETE FROM session_messages WHERE session_id = ?",
+                (str(session.id),),
             )
-            for message in transcript.messages:
+            for message in session.messages:
                 await connection.execute(
                     """
-                    INSERT INTO transcript_messages
-                        (transcript_id, role, data, created_at)
+                    INSERT INTO session_messages
+                        (session_id, role, data, created_at)
                     VALUES (?, ?, ?, ?)
                     """,
                     (
-                        str(transcript.id),
+                        str(session.id),
                         message.role,
                         _encode_message(message),
                         message.created_at.astimezone(UTC).isoformat(),
@@ -95,20 +106,21 @@ class SqliteTranscriptRepository(TranscriptRepository):
                 )
             await connection.commit()
 
-    async def get(self, id: UUID) -> Transcript | None:
+    async def get(self, id: UUID) -> Session | None:
         async with self._connection() as connection:
             cursor = await connection.execute(
-                "SELECT title, created_at FROM transcripts WHERE id = ?", (str(id),)
+                "SELECT title, trigger, created_at FROM sessions WHERE id = ?",
+                (str(id),),
             )
             row = await cursor.fetchone()
             if row is None:
                 return None
             messages = await self._fetch_messages(connection, id)
-        return _build_transcript(id, row, messages)
+        return _build_session(id, row, messages)
 
-    async def list(self, *, limit: int | None = None) -> tuple[Transcript, ...]:
+    async def list(self, *, limit: int | None = None) -> tuple[Session, ...]:
         query = (
-            "SELECT id, title, created_at FROM transcripts "
+            "SELECT id, title, trigger, created_at FROM sessions "
             "ORDER BY created_at DESC, id DESC"
         )
         params: tuple[int, ...] = ()
@@ -119,20 +131,20 @@ class SqliteTranscriptRepository(TranscriptRepository):
         async with self._connection() as connection:
             cursor = await connection.execute(query, params)
             rows = await cursor.fetchall()
-            transcripts = []
+            sessions = []
             for row in rows:
-                transcript_id = UUID(cast(str, row["id"]))
-                messages = await self._fetch_messages(connection, transcript_id)
-                transcripts.append(_build_transcript(transcript_id, row, messages))
-        return tuple(transcripts)
+                session_id = UUID(cast(str, row["id"]))
+                messages = await self._fetch_messages(connection, session_id)
+                sessions.append(_build_session(session_id, row, messages))
+        return tuple(sessions)
 
     async def delete(self, id: UUID) -> bool:
         async with self._connection() as connection:
             await connection.execute(
-                "DELETE FROM transcript_messages WHERE transcript_id = ?", (str(id),)
+                "DELETE FROM session_messages WHERE session_id = ?", (str(id),)
             )
             cursor = await connection.execute(
-                "DELETE FROM transcripts WHERE id = ?", (str(id),)
+                "DELETE FROM sessions WHERE id = ?", (str(id),)
             )
             await connection.commit()
             return cursor.rowcount > 0
@@ -142,8 +154,8 @@ class SqliteTranscriptRepository(TranscriptRepository):
     ) -> tuple[ChatMessage, ...]:
         cursor = await connection.execute(
             """
-            SELECT role, data, created_at FROM transcript_messages
-            WHERE transcript_id = ?
+            SELECT role, data, created_at FROM session_messages
+            WHERE session_id = ?
             ORDER BY id
             """,
             (str(id),),
@@ -156,19 +168,20 @@ class SqliteTranscriptRepository(TranscriptRepository):
         async with aiosqlite.connect(self._database) as connection:
             connection.row_factory = aiosqlite.Row
             await connection.execute("PRAGMA busy_timeout = 5000")
-            await connection.execute(_CREATE_TRANSCRIPTS_TABLE)
+            await connection.execute(_CREATE_SESSIONS_TABLE)
             await connection.execute(_CREATE_MESSAGES_TABLE)
             await connection.execute(_CREATE_MESSAGES_INDEX)
             await connection.commit()
             yield connection
 
 
-def _build_transcript(
+def _build_session(
     id: UUID, row: aiosqlite.Row, messages: tuple[ChatMessage, ...]
-) -> Transcript:
-    return Transcript(
+) -> Session:
+    return Session(
         id=id,
         title=cast(str | None, row["title"]),
+        trigger=cast(SessionTrigger, row["trigger"]),
         created_at=datetime.fromisoformat(cast(str, row["created_at"])),
         messages=messages,
     )

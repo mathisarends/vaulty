@@ -17,7 +17,7 @@ members = [
     "daemon",
     "github",
     "scheduler",
-    "transcripts",
+    "storage",
     "vaulty",
 ]
 
@@ -622,9 +622,9 @@ wheels = [
 ]
 
 [[package]]
-name = "transcripts"
+name = "storage"
 version = "0.1.0"
-source = { editable = "transcripts" }
+source = { editable = "storage" }
 dependencies = [
     { name = "aiosqlite", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
 ]

@@ -36,11 +36,14 @@ class ToolCallMessage:
 
 type ChatMessage = UserMessage | AssistantMessage | ToolCallMessage
 
+type SessionTrigger = Literal["cron", "cli"]
+
 
 @dataclass(frozen=True, slots=True)
-class Transcript:
+class Session:
     id: UUID
     created_at: datetime
+    trigger: SessionTrigger
     title: str | None = None
     messages: tuple[ChatMessage, ...] = ()
 
