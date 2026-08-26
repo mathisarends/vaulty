@@ -11,7 +11,7 @@ inside a locked-down Docker container.
 | --- | --- |
 | `vaulty/llm.py` | `ChatCodex` (gpt-5.6-luna) via Codex-CLI-Login, konfigurierbar über `VAULTY_*` env vars |
 | `vaulty/sandbox.py` | `DockerSandbox`: read-only rootfs, workspace bind-mounted at `/workspace` |
-| `vaulty/tools.py` | `Dependencies` provider + `read_file`, `write_file`, `edit_file`, `list_dir`, `glob`, `grep`, `bash`, `list_skills`, `skill` |
+| `vaulty/tools/` | Semantisch getrennte File-, Shell-, Skill- und Todo-Tools sowie Dependency Wiring |
 | `vaulty/agents.py` | `DOT.VAULTY/` im Workspace: `AGENTS.md` + Skills-Registry aus dem agenttoolkit |
 | `vaulty/agent/` | Agent loop, `SystemPrompt` (Basistext + Workspace-Sektionen) und loss-aware context compaction |
 | `vaulty/main.py` | Terminal chat: streams the answer live and prints every tool call with its result |
