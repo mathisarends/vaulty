@@ -107,7 +107,9 @@ class Agent:
                 arguments, error = _parse_arguments(call)
                 yield ToolStarted(name=name, arguments=arguments)
                 result = error or await self._call_tool(name, arguments)
-                yield ToolFinished(name=name, result=result)
+                tool = self._tools.get(name)
+                metadata = tool.extra if tool is not None else {}
+                yield ToolFinished(name=name, result=result, metadata=metadata)
                 self._messages.append(
                     ToolResultMessage(tool_call_id=call.id, content=result)
                 )

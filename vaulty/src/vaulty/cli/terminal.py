@@ -1,7 +1,9 @@
 import asyncio
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console, Group
 from rich.padding import Padding
@@ -17,7 +19,6 @@ from vaulty.agent import (
     TurnEnded,
 )
 
-_CHECKLIST_TOOLS = {"add_todos", "todos", "check_off"}
 _CHECKBOX = re.compile(r"^(?P<number>\d+)\. \[(?P<mark>[ x~])\] (?P<label>.+)$")
 _COMMANDS = {
     "/clear": "clear the terminal",
@@ -170,8 +171,8 @@ class TerminalChat:
                     self._write_text(text)
                 case ToolStarted(name, arguments):
                     self._tool_started(name, arguments)
-                case ToolFinished(name, result):
-                    self._tool_finished(name, result)
+                case ToolFinished(name, result, metadata):
+                    self._tool_finished(name, result, metadata)
                 case ContextCompacted(before_tokens, after_tokens):
                     self._finish_stream()
                     self._console.print(
@@ -201,8 +202,13 @@ class TerminalChat:
             line.append(f"  {detail}", style="dim")
         self._console.print(line)
 
-    def _tool_finished(self, name: str, result: str) -> None:
-        if name in _CHECKLIST_TOOLS and (items := parse_checklist(result)) is not None:
+    def _tool_finished(
+        self, name: str, result: str, metadata: Mapping[str, Any]
+    ) -> None:
+        if (
+            metadata.get("terminal_renderer") == "checklist"
+            and (items := parse_checklist(result)) is not None
+        ):
             self._console.print(checklist_renderable(items))
         else:
             self._console.print(Text(f"    ↳ {_preview(result)}", style="dim"))

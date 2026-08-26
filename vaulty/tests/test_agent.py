@@ -87,7 +87,7 @@ def test_tool_round_emits_start_and_finish_then_final_text(tmp_path):
     events = collect(agent, "write a file")
 
     assert ToolStarted("write_file", {"path": "a.txt", "content": "x"}) in events
-    assert ToolFinished("write_file", "wrote a.txt (1 chars)") in events
+    assert ToolFinished("write_file", "wrote a.txt (1 chars)", {}) in events
     assert events[-1] == TurnEnded("done", 2)
     assert (workspace.root / "a.txt").read_text(encoding="utf-8") == "x"
 
