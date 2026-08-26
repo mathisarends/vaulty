@@ -1,3 +1,3 @@
-from daemon.daemon import main
+from daemon.daemon import Task, serve
 
-__all__ = ["main"]
+__all__ = ["Task", "serve"]

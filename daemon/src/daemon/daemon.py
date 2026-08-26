@@ -8,23 +8,15 @@ runs and job state survive a restart.
 The runner currently only logs; instantiating the agent is the next step.
 """
 
-import argparse
 import asyncio
 import json
 import logging
 import signal
 from dataclasses import asdict, dataclass
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from scheduler import Cron, ScheduledJob, ScheduledRun, Scheduler, SqliteJobStore
-from vaulty.config import (
-    DEFAULT_CONFIG_PATH,
-    Config,
-    SchedulerSettings,
-    load_config,
-    load_environment,
-)
+from vaulty.config import Config, ScheduledTaskSettings, SchedulerSettings
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +38,20 @@ class TaskCodec:
         return Task(**json.loads(value))
 
 
-async def run_task(run: ScheduledRun[Task]) -> None:
+async def serve(config: Config) -> None:
+    scheduler = _build_scheduler(config.scheduler)
+    await _reconcile(scheduler, config.scheduler)
+
+    if not config.scheduler.tasks:
+        logger.warning("No tasks configured - the daemon will idle")
+
+    async with scheduler:
+        logger.info("Vaulty daemon running - Ctrl-C to stop")
+        await _wait_for_shutdown()
+    logger.info("Vaulty daemon stopped")
+
+
+async def _run_task(run: ScheduledRun[Task]) -> None:
     logger.info(
         "Run %s (%s) due %s: %s",
         run.job_name or run.job_id,
@@ -60,10 +65,10 @@ async def _report_failure(job: ScheduledJob[Task], error: Exception) -> None:
     logger.error("Job %s failed: %s", job.name or job.id, error)
 
 
-def build_scheduler(settings: SchedulerSettings) -> Scheduler[Task]:
+def _build_scheduler(settings: SchedulerSettings) -> Scheduler[Task]:
     settings.database.parent.mkdir(parents=True, exist_ok=True)
     store = SqliteJobStore[Task](settings.database, payload_codec=TaskCodec())
-    return Scheduler(run_task, store, error_handler=_report_failure)
+    return Scheduler(_run_task, store, error_handler=_report_failure)
 
 
 async def _reconcile(scheduler: Scheduler[Task], settings: SchedulerSettings) -> None:
@@ -76,22 +81,29 @@ async def _reconcile(scheduler: Scheduler[Task], settings: SchedulerSettings) ->
             logger.info("Removed job %s - no longer in config", job.id)
 
     for task in settings.tasks:
-        trigger = Cron(expression=task.cron, timezone=ZoneInfo(settings.timezone))
-        payload = Task(prompt=task.prompt)
-        if await scheduler.get(task.id) is None:
-            job = await scheduler.schedule(
-                trigger=trigger, payload=payload, job_id=task.id, name=task.name
-            )
-        else:
-            job = await scheduler.update(
-                task.id, trigger=trigger, payload=payload, name=task.name
-            )
+        job = await _upsert_job(scheduler, task, settings.timezone)
         logger.info(
             "Job %s scheduled (%s), next run %s",
             task.id,
             task.cron,
             job.next_run_at.isoformat() if job else "unknown",
         )
+
+
+async def _upsert_job(
+    scheduler: Scheduler[Task], task: ScheduledTaskSettings, timezone: str
+) -> ScheduledJob[Task] | None:
+    trigger = Cron(expression=task.cron, timezone=ZoneInfo(timezone))
+    payload = Task(prompt=task.prompt)
+
+    if await scheduler.get(task.id) is None:
+        return await scheduler.schedule(
+            trigger=trigger, payload=payload, job_id=task.id, name=task.name
+        )
+
+    return await scheduler.update(
+        task.id, trigger=trigger, payload=payload, name=task.name
+    )
 
 
 async def _wait_for_shutdown() -> None:
@@ -113,37 +125,3 @@ async def _wait_for_shutdown() -> None:
             signal.signal(received, request_stop)
 
     await stop.wait()
-
-
-async def serve(config: Config) -> None:
-    scheduler = build_scheduler(config.scheduler)
-    await _reconcile(scheduler, config.scheduler)
-
-    if not config.scheduler.tasks:
-        logger.warning("No tasks configured - the daemon will idle")
-
-    async with scheduler:
-        logger.info("Vaulty daemon running - Ctrl-C to stop")
-        await _wait_for_shutdown()
-    logger.info("Vaulty daemon stopped")
-
-
-def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-    )
-    load_environment()
-
-    parser = argparse.ArgumentParser(prog="vaulty-daemon")
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
-    args = parser.parse_args()
-
-    try:
-        asyncio.run(serve(load_config(args.config)))
-    except KeyboardInterrupt:
-        pass
-
-
-if __name__ == "__main__":
-    main()
