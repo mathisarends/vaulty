@@ -16,11 +16,13 @@ environments = [
 members = [
     "vaulty",
     "scheduler",
+    "daemon",
 ]
 
 [tool.uv.sources]
 vaulty = { workspace = true }
 scheduler = { workspace = true }
+daemon = { workspace = true }
 
 [tool.ruff]
 line-length = 88
@@ -30,4 +32,4 @@ target-version = "py313"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["vaulty", "scheduler"]
+known-first-party = ["vaulty", "scheduler", "daemon"]
