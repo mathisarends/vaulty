@@ -3,7 +3,6 @@ import difflib
 import re
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +12,7 @@ from rich.table import Table
 from rich.text import Text
 
 import storage
+from cli.picker import by_number, choose_session
 from runtime import (
     MetadataLookup,
     SessionRunner,
@@ -37,58 +37,14 @@ _COMMANDS = {
     "/exit": "leave Vaulty",
 }
 _SESSION_LIMIT = 10
-_TRIGGER_STYLES = {
-    storage.SessionTrigger.CLI: "cyan",
-    storage.SessionTrigger.CRON: "magenta",
-}
-_STATUS_STYLES = {
-    storage.SessionStatus.RUNNING: "yellow",
-    storage.SessionStatus.FINISHED: "green",
-    storage.SessionStatus.FAILED: "red",
-}
 
 
 type SessionOpener = Callable[[storage.Session | None], Awaitable[SessionRunner]]
+type Chooser = Callable[[Console, Sequence[storage.Session]], storage.Session | None]
 
 
 def _no_metadata(name: str) -> Mapping[str, Any]:
     return {}
-
-
-def _age(created_at: datetime, now: datetime) -> str:
-    seconds = (now - created_at).total_seconds()
-    if seconds < 90:
-        return "just now"
-    minutes = seconds / 60
-    if minutes < 60:
-        return f"{int(minutes)}m ago"
-    if minutes < 60 * 24:
-        return f"{int(minutes // 60)}h ago"
-    if minutes < 60 * 24 * 7:
-        return f"{int(minutes // (60 * 24))}d ago"
-    return created_at.astimezone().strftime("%d %b")
-
-
-def sessions_renderable(sessions: Sequence[storage.Session]) -> Padding:
-    now = datetime.now(UTC)
-    table = Table.grid(padding=(0, 2))
-    table.add_column(justify="right", style="dim")
-    table.add_column()
-    table.add_column()
-    table.add_column()
-    table.add_column()
-    table.add_row(
-        *(Text(header, style="dim") for header in ("#", "when", "start", "state", ""))
-    )
-    for number, session in enumerate(sessions, start=1):
-        table.add_row(
-            str(number),
-            Text(_age(session.created_at, now), style="dim"),
-            Text(session.trigger.value, style=_TRIGGER_STYLES[session.trigger]),
-            Text(session.status.value, style=_STATUS_STYLES[session.status]),
-            Text(_preview(session.title or "untitled", 48)),
-        )
-    return Padding(table, (0, 0, 1, 2))
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,11 +118,13 @@ class TerminalChat:
         workspace: Path,
         model: str,
         metadata: MetadataLookup = _no_metadata,
+        chooser: Chooser = choose_session,
     ) -> None:
         self._console = console
         self._open_session = open_session
         self._repository = repository
         self._metadata = metadata
+        self._chooser = chooser
         self._workspace = workspace
         self._model = model
         self._streaming = False
@@ -263,7 +221,6 @@ class TerminalChat:
             self._console.print("[dim]No earlier sessions yet.[/dim]")
             return
 
-        self._console.print(sessions_renderable(sessions))
         chosen = await self._choose(sessions, argument)
         if chosen is None:
             return
@@ -283,26 +240,14 @@ class TerminalChat:
     async def _choose(
         self, sessions: list[storage.Session], argument: str
     ) -> storage.Session | None:
-        if not argument:
-            try:
-                argument = (
-                    await asyncio.to_thread(
-                        self._console.input,
-                        f"[dim]resume which? [1-{len(sessions)}, "
-                        "enter to cancel][/dim] [dim]›[/] ",
-                    )
-                ).strip()
-            except (EOFError, KeyboardInterrupt):
-                self._console.print()
-                return None
-        if not argument:
+        """`/resume 2` picks straight away; a bare `/resume` opens the picker."""
+        if argument:
+            return by_number(self._console, sessions, argument)
+        try:
+            return await asyncio.to_thread(self._chooser, self._console, sessions)
+        except KeyboardInterrupt:
+            self._console.print()
             return None
-        if not argument.isdigit() or not 1 <= int(argument) <= len(sessions):
-            self._console.print(
-                f"[yellow]No session {argument!r} in the list.[/yellow]"
-            )
-            return None
-        return sessions[int(argument) - 1]
 
     async def _close_current(self) -> None:
         """Hand back the current session, discarding it if nothing was said."""
