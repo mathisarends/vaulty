@@ -13,10 +13,10 @@ inside a locked-down Docker container.
 | `vaulty/sandbox.py` | `DockerSandbox`: read-only rootfs, workspace bind-mounted at `/workspace` |
 | `vaulty/tools/` | Semantisch getrennte File-, Shell- und Todo-Tools sowie Dependency Wiring |
 | `vaulty/agent/` | Agent loop, `SystemPrompt` (Basistext + Workspace-Sektionen) und loss-aware context compaction |
-| `vaulty/cli/` | Terminal client: commands, streamed answers, tool activity and checklist rendering |
-| `vaulty/main.py` | Backward-compatible shim for `python -m vaulty.main` |
 
 ## Usage
+
+The terminal client lives in the `cli` package:
 
 ```bash
 uv run vaulty

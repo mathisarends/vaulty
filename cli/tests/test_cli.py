@@ -3,9 +3,9 @@ from typing import cast
 
 from rich.console import Console
 
+from cli.app import build_parser
+from cli.terminal import TerminalChat, checklist_renderable, parse_checklist
 from vaulty import Agent
-from vaulty.cli.app import build_parser
-from vaulty.cli.terminal import TerminalChat, checklist_renderable, parse_checklist
 
 
 def test_cli_accepts_workspace_and_display_overrides(tmp_path):

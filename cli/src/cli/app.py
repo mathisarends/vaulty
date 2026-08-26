@@ -5,8 +5,8 @@ from pathlib import Path
 from agenttoolkit.builtins.fs import LocalWorkspace
 from rich.console import Console
 
+from cli.terminal import TerminalChat
 from vaulty.agent import Agent, SystemPrompt, read_base_prompt
-from vaulty.cli.terminal import TerminalChat
 from vaulty.config import (
     DEFAULT_CONFIG_PATH,
     LEGACY_CONFIG_PATH,
