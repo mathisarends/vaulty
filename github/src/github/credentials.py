@@ -3,10 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class GitHubCredentials(BaseSettings):
-    """Reads `GITHUB_TOKEN` from the environment (or a `.env` file)."""
+    """Reads `GH_TOKEN` from the environment (or a `.env` file)."""
 
-    model_config = SettingsConfigDict(
-        env_prefix="GITHUB_", env_file=".env", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="GH_", env_file=".env", extra="ignore")
 
     token: SecretStr

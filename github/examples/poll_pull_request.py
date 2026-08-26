@@ -10,14 +10,15 @@ from github import GitHubClient, GitHubCredentials
 
 async def main() -> None:
     credentials = GitHubCredentials()  # reads GITHUB_TOKEN
+
     async with GitHubClient(credentials, owner="mathisarends", repo="vault") as client:
-        pr = await client.get_pull_request(1)
+        pr = await client.pulls.get(1)
         print(f"PR #{pr.number} ({pr.state}): {pr.title}")
 
-        for review in await client.list_reviews(pr.number):
+        for review in await client.reviews.list(pr.number):
             print(f"- review by {review.user.login}: {review.state}")
 
-        for comment in await client.list_issue_comments(pr.number):
+        for comment in await client.issue_comments.list(pr.number):
             print(f"- comment by {comment.user.login}: {comment.body}")
 
 

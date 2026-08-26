@@ -6,13 +6,9 @@ from github import GitHubClient, GitHubCredentials
 
 def _client(handler: httpx.MockTransport) -> GitHubClient:
     credentials = GitHubCredentials(token="fake-token")
-    client = GitHubClient(credentials, owner="mathisarends", repo="vault")
-    client._client = httpx.AsyncClient(
-        base_url=client._client.base_url,
-        headers=client._client.headers,
-        transport=handler,
+    return GitHubClient(
+        credentials, owner="mathisarends", repo="vault", transport=handler
     )
-    return client
 
 
 async def test_get_pull_request_parses_status():
@@ -34,7 +30,7 @@ async def test_get_pull_request_parses_status():
         )
 
     async with _client(httpx.MockTransport(handle)) as client:
-        pr = await client.get_pull_request(1)
+        pr = await client.pulls.get(1)
 
     assert pr.number == 1
     assert pr.state == "open"
@@ -73,25 +69,25 @@ async def test_list_reviews_follows_pagination():
         return httpx.Response(200, json=body, headers=headers)
 
     async with _client(httpx.MockTransport(handle)) as client:
-        reviews = await client.list_reviews(1)
+        reviews = await client.reviews.list(1)
 
     assert [review.id for review in reviews] == [1, 2]
     assert reviews[1].state == "APPROVED"
 
 
 @pytest.mark.parametrize(
-    ("method_name", "path"),
+    ("namespace_name", "path"),
     [
-        ("list_review_comments", "/repos/mathisarends/vault/pulls/1/comments"),
-        ("list_issue_comments", "/repos/mathisarends/vault/issues/1/comments"),
+        ("review_comments", "/repos/mathisarends/vault/pulls/1/comments"),
+        ("issue_comments", "/repos/mathisarends/vault/issues/1/comments"),
     ],
 )
-async def test_comment_listings_hit_expected_endpoint(method_name, path):
+async def test_comment_listings_hit_expected_endpoint(namespace_name, path):
     def handle(request: httpx.Request) -> httpx.Response:
         assert request.url.path == path
         return httpx.Response(200, json=[])
 
     async with _client(httpx.MockTransport(handle)) as client:
-        result = await getattr(client, method_name)(1)
+        result = await getattr(client, namespace_name).list(1)
 
     assert result == []
