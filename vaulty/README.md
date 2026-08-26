@@ -40,7 +40,7 @@ you › plan und erledige zwei Schritte
     [ ]  2  Ergebnis prüfen
 ```
 
-Local commands are `/help`, `/clear`, and `/exit`. Use `--root PATH` to override
+Local commands are `/help`, `/clear`, `/compact`, and `/exit`. Use `--root PATH` to override
 the configured workspace for one session and `--no-color` for plain output.
 
 ```python
@@ -70,8 +70,8 @@ agent = Agent(llm, tools, messages=history)
 async for event in agent.run("Continue where we left off"):
     ...
 
-# A caller may also provide the next message and continue without adding a task.
-async for event in agent.run(messages=[UserMessage(content="Now inspect tests")]):
+# To continue from a restored checkpoint without adding a new task, resume instead.
+async for event in agent.resume(messages=[UserMessage(content="Now inspect tests")]):
     ...
 ```
 

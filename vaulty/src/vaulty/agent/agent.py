@@ -73,18 +73,32 @@ class Agent:
 
     async def run(
         self,
-        task: str | None = None,
+        task: str,
         *,
         messages: Iterable[Message] = (),
     ) -> AsyncIterator[AgentEvent]:
-        """Run from the current history after injecting optional context messages.
+        """Run a new task, optionally injecting context ``messages`` beforehand."""
+        self._messages.extend(messages)
+        self._messages.append(UserMessage(content=task))
+        async for event in self._loop():
+            yield event
 
-        ``messages`` are appended before ``task``. Omitting ``task`` lets callers
-        continue directly from an externally supplied conversation checkpoint.
+    async def resume(
+        self,
+        *,
+        messages: Iterable[Message] = (),
+    ) -> AsyncIterator[AgentEvent]:
+        """Continue from the current history without adding a new user task.
+
+        Use this to continue directly from an externally supplied conversation
+        checkpoint (e.g. history restored from storage) instead of starting a
+        new task.
         """
         self._messages.extend(messages)
-        if task is not None:
-            self._messages.append(UserMessage(content=task))
+        async for event in self._loop():
+            yield event
+
+    async def _loop(self) -> AsyncIterator[AgentEvent]:
         schemas = self._tools.get_schema(ToolSchemaFormat.OPENAI)
 
         step = 0

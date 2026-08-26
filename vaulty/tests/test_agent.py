@@ -150,13 +150,13 @@ def test_run_injects_messages_before_new_task(tmp_path):
     ]
 
 
-def test_run_can_continue_from_injected_messages_without_new_task(tmp_path):
+def test_resume_can_continue_from_injected_messages_without_new_task(tmp_path):
     agent, _, llm = build_agent([(["continued"], [])], tmp_path)
 
     async def drain():
         return [
             event
-            async for event in agent.run(
+            async for event in agent.resume(
                 messages=[UserMessage(content="injected request")]
             )
         ]
