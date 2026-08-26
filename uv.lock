@@ -125,14 +125,18 @@ version = "0.1.0"
 source = { editable = "daemon" }
 dependencies = [
     { name = "github", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "runtime", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "scheduler", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "storage", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "vaulty", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "github", editable = "github" },
+    { name = "runtime", editable = "runtime" },
     { name = "scheduler", editable = "scheduler" },
+    { name = "storage", editable = "storage" },
     { name = "vaulty", editable = "vaulty" },
 ]
 

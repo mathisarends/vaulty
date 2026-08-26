@@ -5,18 +5,38 @@ Jobs are declared in `vaulty.yml` and reconciled into a SQLite store on every
 start, so the deployed schedule always matches the config file while missed
 runs and job state survive a restart.
 
-The runner currently only logs; instantiating the agent is the next step.
+Each due task runs the agent through a `SessionRunner`, so a cron run leaves
+the same kind of transcript an interactive one does and can be picked up in
+the CLI afterwards.
 """
 
 import asyncio
 import json
 import logging
 import signal
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
 from zoneinfo import ZoneInfo
 
+from agenttoolkit.builtins.fs import LocalWorkspace
+from agenttoolkit.builtins.shell import CommandRunner
+
+from runtime import SessionRunner
 from scheduler import Cron, ScheduledJob, ScheduledRun, Scheduler, SqliteJobStore
+from storage import SessionRepository, SessionTrigger, SqliteSessionRepository
+from vaulty.agent import (
+    Agent,
+    ContextCompacted,
+    SystemPrompt,
+    TurnEnded,
+    read_base_prompt,
+)
 from vaulty.config import Config, ScheduledTaskSettings, SchedulerSettings
+from vaulty.llm import build_llm
+from vaulty.sandbox import open_sandbox
+from vaulty.tools import Dependencies, build_tools
+
+type TaskRunner = Callable[[ScheduledRun[Task]], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -39,36 +59,87 @@ class TaskCodec:
 
 
 async def serve(config: Config) -> None:
-    scheduler = _build_scheduler(config.scheduler)
-    await _reconcile(scheduler, config.scheduler)
+    """Hold the workspace and the sandbox open while the schedule runs."""
+    workspace = LocalWorkspace(config.root)
+    config.sessions.database.parent.mkdir(parents=True, exist_ok=True)
+    repository = SqliteSessionRepository(config.sessions.database)
 
-    if not config.scheduler.tasks:
-        logger.warning("No tasks configured - the daemon will idle")
+    async with open_sandbox(workspace.root, config.sandbox) as sandbox:
+        run_task = _task_runner(config, workspace, sandbox, repository)
+        scheduler = _build_scheduler(config.scheduler, run_task)
+        await _reconcile(scheduler, config.scheduler)
 
-    async with scheduler:
-        logger.info("Vaulty daemon running - Ctrl-C to stop")
-        await _wait_for_shutdown()
+        if not config.scheduler.tasks:
+            logger.warning("No tasks configured - the daemon will idle")
+
+        async with scheduler:
+            logger.info("Vaulty daemon running - Ctrl-C to stop")
+            await _wait_for_shutdown()
     logger.info("Vaulty daemon stopped")
 
 
-async def _run_task(run: ScheduledRun[Task]) -> None:
-    logger.info(
-        "Run %s (%s) due %s: %s",
-        run.job_name or run.job_id,
-        run.kind,
-        run.scheduled_for.isoformat(),
-        run.payload.prompt,
-    )
+def _task_runner(
+    config: Config,
+    workspace: LocalWorkspace,
+    sandbox: CommandRunner,
+    repository: SessionRepository,
+) -> TaskRunner:
+    """Run one due task on a fresh agent, recording it as a cron session."""
+    llm = build_llm(config.llm)
+
+    async def run_task(run: ScheduledRun[Task]) -> None:
+        label = run.job_name or run.job_id
+        logger.info(
+            "Run %s (%s) due %s: %s",
+            label,
+            run.kind,
+            run.scheduled_for.isoformat(),
+            run.payload.prompt,
+        )
+        # Tools are rebuilt per run so each one starts with an empty checklist.
+        agent = Agent(
+            llm,
+            build_tools(Dependencies(workspace, sandbox)),
+            system_prompt=SystemPrompt(base=read_base_prompt()),
+            compaction=config.compaction,
+        )
+        session = await SessionRunner.start(
+            agent, repository, trigger=SessionTrigger.CRON, title=label
+        )
+        try:
+            async for event in session.run(run.payload.prompt):
+                _log_event(label, event)
+        finally:
+            await session.finish()
+            logger.info("Run %s recorded as session %s", label, session.session.id)
+
+    return run_task
+
+
+def _log_event(label: str, event: object) -> None:
+    """Tool calls are already logged by the agent; report the rest."""
+    match event:
+        case ContextCompacted(before_tokens, after_tokens):
+            logger.info(
+                "Run %s compacted context: %s -> %s estimated tokens",
+                label,
+                before_tokens,
+                after_tokens,
+            )
+        case TurnEnded(text, steps):
+            logger.info("Run %s finished after %s steps: %s", label, steps, text)
 
 
 async def _report_failure(job: ScheduledJob[Task], error: Exception) -> None:
     logger.error("Job %s failed: %s", job.name or job.id, error)
 
 
-def _build_scheduler(settings: SchedulerSettings) -> Scheduler[Task]:
+def _build_scheduler(
+    settings: SchedulerSettings, run_task: TaskRunner
+) -> Scheduler[Task]:
     settings.database.parent.mkdir(parents=True, exist_ok=True)
     store = SqliteJobStore[Task](settings.database, payload_codec=TaskCodec())
-    return Scheduler(_run_task, store, error_handler=_report_failure)
+    return Scheduler(run_task, store, error_handler=_report_failure)
 
 
 async def _reconcile(scheduler: Scheduler[Task], settings: SchedulerSettings) -> None:
