@@ -20,6 +20,7 @@ environments = [
 members = [
     "vaulty",
     "cli",
+    "runtime",
     "scheduler",
     "daemon",
     "github",
@@ -29,6 +30,7 @@ members = [
 [tool.uv.sources]
 vaulty = { workspace = true }
 cli = { workspace = true }
+runtime = { workspace = true }
 scheduler = { workspace = true }
 daemon = { workspace = true }
 github = { workspace = true }
@@ -42,4 +44,12 @@ target-version = "py313"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["vaulty", "cli", "scheduler", "daemon", "github", "storage"]
+known-first-party = [
+    "vaulty",
+    "cli",
+    "runtime",
+    "scheduler",
+    "daemon",
+    "github",
+    "storage",
+]
