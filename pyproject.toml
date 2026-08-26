@@ -17,12 +17,14 @@ members = [
     "vaulty",
     "scheduler",
     "daemon",
+    "github",
 ]
 
 [tool.uv.sources]
 vaulty = { workspace = true }
 scheduler = { workspace = true }
 daemon = { workspace = true }
+github = { workspace = true }
 
 [tool.ruff]
 line-length = 88
@@ -32,4 +34,4 @@ target-version = "py313"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["vaulty", "scheduler", "daemon"]
+known-first-party = ["vaulty", "scheduler", "daemon", "github"]

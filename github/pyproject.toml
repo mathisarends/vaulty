@@ -1,0 +1,30 @@
+[project]
+name = "github"
+version = "0.1.0"
+description = "Minimal async GitHub REST client (httpx + pydantic) for pull request state."
+readme = "README.md"
+requires-python = ">=3.13,<3.15"
+dependencies = [
+    "httpx>=0.28.0",
+    "pydantic>=2.13.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/github"]
+
+[tool.ruff]
+extend = "../pyproject.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
