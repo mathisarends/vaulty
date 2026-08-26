@@ -29,7 +29,7 @@ async def test_get_pull_request_parses_status():
         )
 
     async with _client(httpx.MockTransport(handle)) as client:
-        pr = await client.pulls.get(1)
+        pr = await client.get_pull_request(1)
 
     assert pr.number == 1
     assert pr.state == "open"
@@ -68,7 +68,7 @@ async def test_list_reviews_follows_pagination():
         return httpx.Response(200, json=body, headers=headers)
 
     async with _client(httpx.MockTransport(handle)) as client:
-        reviews = await client.reviews.list(1)
+        reviews = await client.list_reviews(1)
 
     assert [review.id for review in reviews] == [1, 2]
     assert reviews[1].state == "APPROVED"
@@ -80,6 +80,6 @@ async def test_review_comments_hit_expected_endpoint():
         return httpx.Response(200, json=[])
 
     async with _client(httpx.MockTransport(handle)) as client:
-        result = await client.review_comments.list(1)
+        result = await client.list_review_comments(1)
 
     assert result == []

@@ -7,7 +7,7 @@ async def main() -> None:
     credentials = GitHubCredentials()
 
     async with GitHubClient(credentials, owner="mathisarends", repo="vault") as client:
-        for review in await client.reviews.list(1):
+        for review in await client.list_reviews(1):
             print(f"- review by {review.user.login}: {review.state}")
 
 
