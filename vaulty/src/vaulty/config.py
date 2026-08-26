@@ -25,7 +25,6 @@ class CompactionSettings(BaseModel):
     context_window_tokens: int | None = Field(default=None, ge=128)
     trigger_fraction: float = Field(default=0.8, gt=0.0, lt=1.0)
     retain_tokens: int = Field(default=32_000, ge=0)
-    summary_max_tokens: int = Field(default=8_000, gt=0)
 
 
 class ScheduledTaskSettings(BaseModel):

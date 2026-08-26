@@ -1,4 +1,5 @@
 import asyncio
+import difflib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from vaulty.agent import (
 _CHECKBOX = re.compile(r"^(?P<number>\d+)\. \[(?P<mark>[ x~])\] (?P<label>.+)$")
 _COMMANDS = {
     "/clear": "clear the terminal",
+    "/compact": "compact the conversation now",
     "/help": "show local commands",
     "/exit": "leave Vaulty",
 }
@@ -149,6 +151,9 @@ class TerminalChat:
             self._console.clear()
             self._welcome()
             return True
+        if command == "/compact":
+            await self._compact_now()
+            return True
         if command == "/help":
             table = Table.grid(padding=(0, 2))
             for name, description in _COMMANDS.items():
@@ -157,11 +162,28 @@ class TerminalChat:
             return True
         return command.startswith("/") and self._unknown_command(value)
 
+    async def _compact_now(self) -> None:
+        with self._console.status("[dim]Compacting context…[/dim]", spinner="dots"):
+            result = await self._agent.compact()
+        if result is None:
+            self._console.print("[dim]Nothing to compact.[/dim]")
+            return
+        self._console.print(
+            "[dim]↻ Context compacted: "
+            f"{result.before_tokens:,} → {result.after_tokens:,} estimated tokens[/dim]"
+        )
+
     def _unknown_command(self, value: str) -> bool:
         line = Text("Unknown command: ", style="yellow")
         line.append(value)
         self._console.print(line)
-        self._console.print("[dim]Type /help to list local commands.[/dim]")
+        suggestion = difflib.get_close_matches(
+            value.casefold(), _COMMANDS.keys(), n=1, cutoff=0.6
+        )
+        if suggestion:
+            self._console.print(f"[dim]Did you mean {suggestion[0]}?[/dim]")
+        else:
+            self._console.print("[dim]Type /help to list local commands.[/dim]")
         return True
 
     async def _turn(self, task: str) -> None:

@@ -45,7 +45,7 @@ class ScriptedLLM:
 
     async def invoke(self, messages, **kwargs):
         self.compaction_messages.append(list(messages))
-        return SimpleNamespace(content=self.summaries.pop(0))
+        return SimpleNamespace(completion=self.summaries.pop(0))
 
 
 def tool_call(name, **arguments):
@@ -182,7 +182,6 @@ def test_old_turns_are_compacted_but_recent_turn_is_preserved(tmp_path):
         context_window_tokens=600,
         trigger_fraction=0.5,
         retain_tokens=100,
-        summary_max_tokens=64,
     )
     rounds = [(["old answer " * 30], []), (["new answer"], [])]
     agent, _, llm = build_agent(

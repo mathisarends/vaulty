@@ -62,6 +62,22 @@ class ConversationCompactor:
         if before < trigger:
             return None
 
+        return await self.force_compact(messages, tools)
+
+    async def force_compact(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+    ) -> tuple[list[Message], int, int] | None:
+        """Compact unconditionally, ignoring the trigger threshold and enabled flag.
+
+        Used for user-initiated compaction (e.g. a ``/compact`` command), where the
+        caller has already decided compaction should happen now.
+        """
+        if len(messages) <= 2:
+            return None
+
+        before = _estimate_input_tokens(messages, tools)
         compacted = await self._compact(messages)
         after = _estimate_input_tokens(compacted, tools)
         if after >= before:
@@ -92,9 +108,8 @@ class ConversationCompactor:
                 SystemMessage(content=_SUMMARY_PROMPT),
                 UserMessage(content=transcript),
             ],
-            max_tokens=self._config.summary_max_tokens,
         )
-        summary = completion.content
+        summary = completion.completion
         if not isinstance(summary, str):
             raise RuntimeError("compaction model returned non-text content")
         summary = summary.strip()

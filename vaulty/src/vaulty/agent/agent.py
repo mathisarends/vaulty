@@ -57,6 +57,20 @@ class Agent:
     def messages(self) -> list[Message]:
         return self._messages
 
+    async def compact(self) -> ContextCompacted | None:
+        """Compact the conversation now, regardless of the auto-compaction trigger.
+
+        Returns ``None`` if there is nothing worth compacting (e.g. too little
+        history, or compaction would not shrink the context).
+        """
+        schemas = self._tools.get_schema(ToolSchemaFormat.OPENAI)
+        compacted = await self._compactor.force_compact(self._messages, schemas)
+        if compacted is None:
+            return None
+        messages, before_tokens, after_tokens = compacted
+        self._messages[:] = messages
+        return ContextCompacted(before_tokens, after_tokens)
+
     async def run(
         self,
         task: str | None = None,
