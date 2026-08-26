@@ -71,30 +71,19 @@ class Agent:
         self._messages[:] = messages
         return ContextCompacted(before_tokens, after_tokens)
 
-    async def run(
-        self,
-        task: str,
-        *,
-        messages: Iterable[Message] = (),
-    ) -> AsyncIterator[AgentEvent]:
-        """Run a new task, optionally injecting context ``messages`` beforehand."""
-        self._messages.extend(messages)
+    async def run(self, task: str) -> AsyncIterator[AgentEvent]:
+        """Run a new task."""
         self._messages.append(UserMessage(content=task))
         async for event in self._loop():
             yield event
 
-    async def resume(
-        self,
-        *,
-        messages: Iterable[Message] = (),
-    ) -> AsyncIterator[AgentEvent]:
+    async def resume(self) -> AsyncIterator[AgentEvent]:
         """Continue from the current history without adding a new user task.
 
         Use this to continue directly from an externally supplied conversation
         checkpoint (e.g. history restored from storage) instead of starting a
         new task.
         """
-        self._messages.extend(messages)
         async for event in self._loop():
             yield event
 

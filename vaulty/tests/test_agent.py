@@ -131,17 +131,14 @@ def test_initial_messages_restore_conversation_before_new_task(tmp_path):
     assert llm.seen_messages[0][-1].content == "continue"
 
 
-def test_run_injects_messages_before_new_task(tmp_path):
-    agent, _, llm = build_agent([(["done"], [])], tmp_path)
+def test_run_appends_new_task_after_constructor_messages(tmp_path):
+    context = [
+        UserMessage(content="external question"),
+        AssistantMessage(content="external answer"),
+    ]
+    agent, _, llm = build_agent([(["done"], [])], tmp_path, messages=context)
 
-    async def drain():
-        context = [
-            UserMessage(content="external question"),
-            AssistantMessage(content="external answer"),
-        ]
-        return [event async for event in agent.run("next", messages=context)]
-
-    asyncio.run(drain())
+    collect(agent, "next")
 
     assert [message.content for message in llm.seen_messages[0][1:]] == [
         "external question",
@@ -150,16 +147,15 @@ def test_run_injects_messages_before_new_task(tmp_path):
     ]
 
 
-def test_resume_can_continue_from_injected_messages_without_new_task(tmp_path):
-    agent, _, llm = build_agent([(["continued"], [])], tmp_path)
+def test_resume_can_continue_from_constructor_messages_without_new_task(tmp_path):
+    agent, _, llm = build_agent(
+        [(["continued"], [])],
+        tmp_path,
+        messages=[UserMessage(content="injected request")],
+    )
 
     async def drain():
-        return [
-            event
-            async for event in agent.resume(
-                messages=[UserMessage(content="injected request")]
-            )
-        ]
+        return [event async for event in agent.resume()]
 
     events = asyncio.run(drain())
 

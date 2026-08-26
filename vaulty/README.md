@@ -54,9 +54,7 @@ async for event in agent.run("summarise the repo layout"):
             print(name, arguments)
 ```
 
-Existing conversation history can be restored when the agent is created, or
-injected immediately before a later run. Injected messages are placed before an
-optional new user task:
+Existing conversation history can be restored when the agent is created:
 
 ```python
 from llmify import AssistantMessage, UserMessage
@@ -71,7 +69,7 @@ async for event in agent.run("Continue where we left off"):
     ...
 
 # To continue from a restored checkpoint without adding a new task, resume instead.
-async for event in agent.resume(messages=[UserMessage(content="Now inspect tests")]):
+async for event in agent.resume():
     ...
 ```
 
