@@ -11,8 +11,7 @@ inside a locked-down Docker container.
 | --- | --- |
 | `vaulty/llm.py` | `ChatCodex` (gpt-5.6-luna) via Codex-CLI-Login, konfigurierbar über `VAULTY_*` env vars |
 | `vaulty/sandbox.py` | `DockerSandbox`: read-only rootfs, workspace bind-mounted at `/workspace` |
-| `vaulty/tools/` | Semantisch getrennte File-, Shell-, Skill- und Todo-Tools sowie Dependency Wiring |
-| `vaulty/agents.py` | `DOT.VAULTY/` im Workspace: `AGENTS.md` + Skills-Registry aus dem agenttoolkit |
+| `vaulty/tools/` | Semantisch getrennte File-, Shell- und Todo-Tools sowie Dependency Wiring |
 | `vaulty/agent/` | Agent loop, `SystemPrompt` (Basistext + Workspace-Sektionen) und loss-aware context compaction |
 | `vaulty/cli/` | Terminal client: commands, streamed answers, tool activity and checklist rendering |
 | `vaulty/main.py` | Backward-compatible shim for `python -m vaulty.main` |
@@ -82,36 +81,6 @@ override it with `--root` or the `VAULTY_ROOT` environment variable.
 Requires a logged-in Codex CLI (`~/.codex/auth.json`) and a running Docker daemon.
 Settings: `VAULTY_MODEL`, `VAULTY_REASONING_EFFORT`, `VAULTY_TIMEOUT_SECONDS`,
 `VAULTY_MAX_RETRIES` (env or `.env`).
-
-## Workspace configuration (`DOT.VAULTY/`)
-
-Where a code repo keeps its agent setup next to the source, Vaulty keeps it
-inside the workspace itself — by default `<root>/DOT.VAULTY/`, so in the Obsidian
-vault at `C:\obsidian\database\DOT.VAULTY\`:
-
-```text
-DOT.VAULTY/
-  AGENTS.md                    standing instructions, loaded into every system prompt
-  skills/
-    weekly-review/SKILL.md     one directory per skill, name must match the directory
-```
-
-Deliberately not a dot-folder: Obsidian hides those from the vault, so the notes
-app could neither show nor edit them. The directory is created on start when
-missing, together with an `AGENTS.md` template. Change the location in
-`vaulty.yml`:
-
-```yaml
-agents:
-  directory: DOT.VAULTY
-  skills_dirname: skills
-  instructions_filename: AGENTS.md
-```
-
-Skills are discovered by `agenttoolkit.Skills`. Their names and descriptions go
-into the system prompt; the agent loads a full skill with the `skill` tool and
-re-reads the catalogue with `list_skills`, so skills it writes during a session
-are usable immediately.
 
 ## Context compaction
 

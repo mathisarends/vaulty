@@ -6,7 +6,6 @@ from agenttoolkit.builtins.fs import LocalWorkspace
 from rich.console import Console
 
 from vaulty.agent import Agent, SystemPrompt, read_base_prompt
-from vaulty.agents import open_agents_home
 from vaulty.cli.terminal import TerminalChat
 from vaulty.config import (
     DEFAULT_CONFIG_PATH,
@@ -48,17 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def run(config: Config, console: Console) -> None:
     workspace = LocalWorkspace(config.root)
-    home = open_agents_home(Path(workspace.root), config.agents)
     async with open_sandbox(workspace.root, config.sandbox) as sandbox:
-        tools = build_tools(Dependencies(workspace, sandbox, home.skills))
+        tools = build_tools(Dependencies(workspace, sandbox))
         agent = Agent(
             build_llm(config.llm),
             tools,
-            system_prompt=SystemPrompt(
-                base=read_base_prompt(),
-                instructions=home.instructions,
-                skills=home.skills,
-            ),
+            system_prompt=SystemPrompt(base=read_base_prompt()),
             compaction=config.compaction,
         )
         await TerminalChat(
