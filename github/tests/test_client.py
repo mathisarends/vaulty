@@ -1,11 +1,12 @@
 import httpx
 import pytest
 
-from github import GitHubClient
+from github import GitHubClient, GitHubCredentials
 
 
 def _client(handler: httpx.MockTransport) -> GitHubClient:
-    client = GitHubClient(token="fake-token", owner="mathisarends", repo="vault")
+    credentials = GitHubCredentials(token="fake-token")
+    client = GitHubClient(credentials, owner="mathisarends", repo="vault")
     client._client = httpx.AsyncClient(
         base_url=client._client.base_url,
         headers=client._client.headers,

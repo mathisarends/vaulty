@@ -4,6 +4,7 @@ from typing import Self
 import httpx
 from pydantic import BaseModel
 
+from github.credentials import GitHubCredentials
 from github.models import IssueComment, PullRequest, Review, ReviewComment
 
 _API_BASE_URL = "https://api.github.com"
@@ -19,19 +20,20 @@ class GitHubClient:
 
     def __init__(
         self,
-        token: str,
+        credentials: GitHubCredentials,
         owner: str,
         repo: str,
         *,
         base_url: str = _API_BASE_URL,
         timeout: float = 30.0,
     ) -> None:
+        self._token = credentials.token
         self._owner = owner
         self._repo = repo
         self._client = httpx.AsyncClient(
             base_url=base_url,
             headers={
-                "Authorization": f"Bearer {token}",
+                "Authorization": f"Bearer {self._token.get_secret_value()}",
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": _API_VERSION,
             },
