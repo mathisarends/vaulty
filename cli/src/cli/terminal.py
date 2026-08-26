@@ -1,8 +1,9 @@
 import asyncio
 import difflib
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,13 +32,63 @@ _CHECKBOX = re.compile(r"^(?P<number>\d+)\. \[(?P<mark>[ x~])\] (?P<label>.+)$")
 _COMMANDS = {
     "/clear": "clear the terminal",
     "/compact": "compact the conversation now",
+    "/resume": "switch to an earlier session",
     "/help": "show local commands",
     "/exit": "leave Vaulty",
 }
+_SESSION_LIMIT = 10
+_TRIGGER_STYLES = {
+    storage.SessionTrigger.CLI: "cyan",
+    storage.SessionTrigger.CRON: "magenta",
+}
+_STATUS_STYLES = {
+    storage.SessionStatus.RUNNING: "yellow",
+    storage.SessionStatus.FINISHED: "green",
+    storage.SessionStatus.FAILED: "red",
+}
+
+
+type SessionOpener = Callable[[storage.Session | None], Awaitable[SessionRunner]]
 
 
 def _no_metadata(name: str) -> Mapping[str, Any]:
     return {}
+
+
+def _age(created_at: datetime, now: datetime) -> str:
+    seconds = (now - created_at).total_seconds()
+    if seconds < 90:
+        return "just now"
+    minutes = seconds / 60
+    if minutes < 60:
+        return f"{int(minutes)}m ago"
+    if minutes < 60 * 24:
+        return f"{int(minutes // 60)}h ago"
+    if minutes < 60 * 24 * 7:
+        return f"{int(minutes // (60 * 24))}d ago"
+    return created_at.astimezone().strftime("%d %b")
+
+
+def sessions_renderable(sessions: Sequence[storage.Session]) -> Padding:
+    now = datetime.now(UTC)
+    table = Table.grid(padding=(0, 2))
+    table.add_column(justify="right", style="dim")
+    table.add_column()
+    table.add_column()
+    table.add_column()
+    table.add_column()
+    table.add_row(
+        *(Text(header, style="dim") for header in ("#", "when", "start", "state", ""))
+    )
+    for number, session in enumerate(sessions, start=1):
+        table.add_row(
+            str(number),
+            Text(_age(session.created_at, now), style="dim"),
+            Text(session.trigger.value, style=_TRIGGER_STYLES[session.trigger]),
+            Text(session.status.value, style=_STATUS_STYLES[session.status]),
+            Text(_preview(session.title or "untitled", 48)),
+        )
+    return Padding(table, (0, 0, 1, 2))
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,26 +155,37 @@ def _format_arguments(arguments: dict) -> str:
 class TerminalChat:
     def __init__(
         self,
-        runner: SessionRunner,
         console: Console,
         *,
+        open_session: SessionOpener,
+        repository: storage.SessionRepository,
         workspace: Path,
         model: str,
         metadata: MetadataLookup = _no_metadata,
     ) -> None:
-        self._runner = runner
-        self._metadata = metadata
         self._console = console
+        self._open_session = open_session
+        self._repository = repository
+        self._metadata = metadata
         self._workspace = workspace
         self._model = model
         self._streaming = False
+        self._runner: SessionRunner | None = None
+
+    @property
+    def runner(self) -> SessionRunner:
+        """The session being chatted with. Only valid while `run` is active."""
+        if self._runner is None:
+            raise RuntimeError("No session is open")
+        return self._runner
 
     async def run(self) -> None:
+        self._runner = await self._open_session(None)
         self._welcome()
         try:
             await self._loop()
         finally:
-            await self._runner.finish()
+            await self._close_current()
 
     async def _loop(self) -> None:
         while True:
@@ -158,12 +220,18 @@ class TerminalChat:
         )
         self._console.print(f"[dim]Workspace[/dim]  {self._workspace}")
         self._console.print(f"[dim]Model[/dim]      {self._model}")
+        session = self.runner.session
+        label = session.title or "new session"
+        self._console.print(
+            f"[dim]Session[/dim]    {label} [dim]({session.trigger.value})[/dim]"
+        )
         self._console.print(
             "[dim]Type /help for commands · Ctrl-C to interrupt[/dim]\n"
         )
 
     async def _handle_command(self, value: str) -> bool:
-        command = value.casefold()
+        head, _, argument = value.partition(" ")
+        command = head.casefold()
         if command in {"/exit", "exit", "quit"}:
             return True
         if command == "/clear":
@@ -173,6 +241,9 @@ class TerminalChat:
         if command == "/compact":
             await self._compact_now()
             return True
+        if command == "/resume":
+            await self._resume(argument.strip())
+            return True
         if command == "/help":
             table = Table.grid(padding=(0, 2))
             for name, description in _COMMANDS.items():
@@ -181,9 +252,70 @@ class TerminalChat:
             return True
         return command.startswith("/") and self._unknown_command(value)
 
+    async def _resume(self, argument: str) -> None:
+        """Show earlier sessions and switch to the one the user picks."""
+        sessions = [
+            session
+            for session in await self._repository.list(limit=_SESSION_LIMIT + 1)
+            if session.id != self.runner.session.id
+        ][:_SESSION_LIMIT]
+        if not sessions:
+            self._console.print("[dim]No earlier sessions yet.[/dim]")
+            return
+
+        self._console.print(sessions_renderable(sessions))
+        chosen = await self._choose(sessions, argument)
+        if chosen is None:
+            return
+        if chosen.status is storage.SessionStatus.RUNNING:
+            self._console.print(
+                "[yellow]That session is still running.[/yellow] "
+                "[dim]Another agent is writing to it.[/dim]"
+            )
+            return
+
+        await self._close_current()
+        self._runner = await self._open_session(chosen)
+        self._console.clear()
+        self._welcome()
+        self.show(chosen.messages)
+
+    async def _choose(
+        self, sessions: list[storage.Session], argument: str
+    ) -> storage.Session | None:
+        if not argument:
+            try:
+                argument = (
+                    await asyncio.to_thread(
+                        self._console.input,
+                        f"[dim]resume which? [1-{len(sessions)}, "
+                        "enter to cancel][/dim] [dim]›[/] ",
+                    )
+                ).strip()
+            except (EOFError, KeyboardInterrupt):
+                self._console.print()
+                return None
+        if not argument:
+            return None
+        if not argument.isdigit() or not 1 <= int(argument) <= len(sessions):
+            self._console.print(
+                f"[yellow]No session {argument!r} in the list.[/yellow]"
+            )
+            return None
+        return sessions[int(argument) - 1]
+
+    async def _close_current(self) -> None:
+        """Hand back the current session, discarding it if nothing was said."""
+        session = self.runner.session
+        if session.messages:
+            await self.runner.finish()
+        else:
+            await self._repository.delete(session.id)
+        self._runner = None
+
     async def _compact_now(self) -> None:
         with self._console.status("[dim]Compacting context…[/dim]", spinner="dots"):
-            result = await self._runner.compact()
+            result = await self.runner.compact()
         if result is None:
             self._console.print("[dim]Nothing to compact.[/dim]")
             return
@@ -212,7 +344,7 @@ class TerminalChat:
         self._finish_stream()
 
     async def _turn(self, task: str) -> None:
-        async for event in self._runner.run(task):
+        async for event in self.runner.run(task):
             self._render(event)
 
     def _render(self, event: TranscriptEvent) -> None:

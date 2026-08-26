@@ -1,15 +1,16 @@
 import argparse
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from agenttoolkit.builtins.fs import LocalWorkspace
+from llmify import Message
 from rich.console import Console
 
 from cli.terminal import TerminalChat
-from runtime import SessionRunner
-from storage import SessionTrigger, SqliteSessionRepository
+from runtime import SessionRunner, to_llm
+from storage import Session, SessionTrigger, SqliteSessionRepository
 from vaulty.agent import Agent, SystemPrompt, read_base_prompt
 from vaulty.config import (
     DEFAULT_CONFIG_PATH,
@@ -56,23 +57,35 @@ async def run(config: Config, console: Console) -> None:
 
     async with open_sandbox(workspace.root, config.sandbox) as sandbox:
         tools = build_tools(Dependencies(workspace, sandbox))
-        agent = Agent(
-            build_llm(config.llm),
-            tools,
-            system_prompt=SystemPrompt(base=read_base_prompt()),
-            compaction=config.compaction,
-        )
-        runner = await SessionRunner.start(
-            agent, repository, trigger=SessionTrigger.CLI
-        )
+        llm = build_llm(config.llm)
+
+        def build_agent(messages: Iterable[Message] = ()) -> Agent:
+            return Agent(
+                llm,
+                tools,
+                system_prompt=SystemPrompt(base=read_base_prompt()),
+                compaction=config.compaction,
+                messages=messages,
+            )
+
+        async def open_session(session: Session | None) -> SessionRunner:
+            """Start a session, or continue the stored one the user picked."""
+            if session is None:
+                return await SessionRunner.start(
+                    build_agent(), repository, trigger=SessionTrigger.CLI
+                )
+            return await SessionRunner.reopen(
+                build_agent(to_llm(session.messages)), repository, session
+            )
 
         def metadata(name: str) -> Mapping[str, Any]:
             tool = tools.get(name)
             return tool.extra if tool is not None else {}
 
         await TerminalChat(
-            runner,
             console,
+            open_session=open_session,
+            repository=repository,
             workspace=Path(workspace.root),
             model=config.llm.model.value,
             metadata=metadata,
