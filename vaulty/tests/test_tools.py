@@ -47,6 +47,9 @@ def test_schema_covers_file_and_shell_tools(registry):
         "glob",
         "grep",
         "bash",
+        "add_todos",
+        "todos",
+        "check_off",
     }
 
 
@@ -75,3 +78,15 @@ def test_bash_reports_exit_code_and_output(registry):
 def test_tool_errors_are_returned_to_the_model(registry):
     tools, _, _ = registry
     assert "Tool failed" in call(tools, "read_file", path="missing.txt")
+
+
+def test_agent_writes_its_own_checklist_and_ticks_it_off(registry):
+    tools, _, _ = registry
+    assert call(tools, "todos") == "the checklist is empty"
+
+    assert call(tools, "add_todos", items=["Termin planen", "Hochzeit planen"]) == (
+        "1. [ ] Termin planen\n2. [ ] Hochzeit planen"
+    )
+    assert call(tools, "check_off", item=1) == (
+        "1. [x] Termin planen\n2. [ ] Hochzeit planen"
+    )

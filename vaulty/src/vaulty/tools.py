@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 from agenttoolkit import (
@@ -14,12 +15,18 @@ from agenttoolkit import (
 )
 from agenttoolkit.builtins.fs import Workspace
 from agenttoolkit.builtins.shell import CommandRunner
+from agenttoolkit.builtins.todo import InMemoryTodoList, Todo, TodoList, TodoStatus
 
-BUDGET = OutputBudget()
-LIST_LIMIT = 500
-GREP_LIMIT = 200
+_BUDGET = OutputBudget()
+_LIST_LIMIT = 500
+_GREP_LIMIT = 200
 # headroom so hidden matches do not eat into the visible ones
-GREP_SCAN_LIMIT = GREP_LIMIT * 5
+_GREP_SCAN_LIMIT = _GREP_LIMIT * 5
+_MARKS = {
+    TodoStatus.PENDING: " ",
+    TodoStatus.IN_PROGRESS: "~",
+    TodoStatus.COMPLETED: "x",
+}
 
 
 class Dependencies(DependencyProvider):
@@ -32,6 +39,7 @@ class Dependencies(DependencyProvider):
         self._workspace = workspace
         self._sandbox = sandbox
         self._skills = skills
+        self._checklist: TodoList = InMemoryTodoList()
 
     @provide
     def workspace(self) -> Workspace:
@@ -47,6 +55,10 @@ class Dependencies(DependencyProvider):
             raise LookupError("This workspace has no skills directory")
         return self._skills
 
+    @provide
+    def checklist(self) -> TodoList:
+        return self._checklist
+
     def context(self) -> ToolContext:
         """Optional dependencies, so `provided(...)` can gate tools on them."""
         return ToolContext(self._skills)
@@ -55,7 +67,7 @@ class Dependencies(DependencyProvider):
 def build_tools(
     dependencies: Dependencies,
     *,
-    budget: OutputBudget = BUDGET,
+    budget: OutputBudget = _BUDGET,
 ) -> Tools:
     tools = Tools(
         dependencies=[dependencies],
@@ -97,7 +109,7 @@ def build_tools(
         recursive: bool = False,
     ) -> str:
         entries = await workspace.list_dir(path, recursive=recursive)
-        visible = [e for e in entries if not _is_hidden(e.path)][:LIST_LIMIT]
+        visible = [e for e in entries if not _is_hidden(e.path)][:_LIST_LIMIT]
         if not visible:
             return f"{path} is empty"
         lines = [f"{'d' if entry.is_dir else 'f'} {entry.path}" for entry in visible]
@@ -129,9 +141,9 @@ def build_tools(
             pattern,
             glob=glob,
             case_sensitive=case_sensitive,
-            max_matches=GREP_SCAN_LIMIT,
+            max_matches=_GREP_SCAN_LIMIT,
         )
-        visible = [m for m in matches if not _is_hidden(m.path)][:GREP_LIMIT]
+        visible = [m for m in matches if not _is_hidden(m.path)][:_GREP_LIMIT]
         if not visible:
             return f"no matches for {pattern}"
         lines = [f"{m.path}:{m.line_number}: {m.line}" for m in visible]
@@ -183,7 +195,40 @@ def build_tools(
             sections.append(f"Files bundled with this skill:\n{files}")
         return budget.shape("\n\n".join(sections))
 
+    @tools.tool(
+        "Write down the steps a multi-step task needs, in the order you will do "
+        "them. Items are appended to the checklist and numbered. Returns the "
+        "updated checklist."
+    )
+    async def add_todos(items: list[str], checklist: Inject[TodoList]) -> str:
+        for item in items:
+            await checklist.add(item)
+        return _render_checklist(await checklist.list())
+
+    @tools.tool(
+        "Show the checklist: every item with its number and whether it is done. "
+        "Read it between steps to see what is left."
+    )
+    async def todos(checklist: Inject[TodoList]) -> str:
+        return _render_checklist(await checklist.list())
+
+    @tools.tool(
+        "Tick off one checklist item by its number, once it is actually done. "
+        "Returns the updated checklist."
+    )
+    async def check_off(item: int, checklist: Inject[TodoList]) -> str:
+        await checklist.complete(item)
+        return _render_checklist(await checklist.list())
+
     return tools
+
+
+def _render_checklist(items: Sequence[Todo]) -> str:
+    if not items:
+        return "the checklist is empty"
+    return "\n".join(
+        f"{item.id}. [{_MARKS[item.status]}] {item.content}" for item in items
+    )
 
 
 def _relative_to_workspace(directory: Path, workspace: Workspace) -> str:
