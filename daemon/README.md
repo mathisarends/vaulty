@@ -20,5 +20,11 @@ reads. A finished nightly run therefore shows up in `/resume` and can be picked
 up interactively; one that crashed is stored as `failed` with whatever it
 managed to say.
 
+On start, any cron session left `running` by an earlier daemon is marked
+`failed`. A hard kill would otherwise leave it `running` forever, and nothing
+may resume such a session - the run would be locked away for good. Interactive
+sessions are never touched; one of them may belong to a terminal that is open
+right now.
+
 Tool calls are logged by the agent itself. The daemon logs the schedule, context
 compactions, and the final answer of each run.

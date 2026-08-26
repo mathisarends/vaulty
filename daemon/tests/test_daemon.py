@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 import llmify
 import pytest
@@ -81,3 +82,32 @@ async def test_a_failing_run_leaves_the_session_failed(agentless, tmp_path):
     session = (await repository.list())[0]
     assert session.status is SessionStatus.FAILED
     assert [message.role for message in session.messages] == ["user"]
+
+
+async def test_a_killed_daemon_does_not_lock_its_session_away() -> None:
+    repository = MemorySessionRepository()
+    orphan = await repository.create(
+        uuid4(), datetime.now(UTC), trigger=SessionTrigger.CRON, title="daily"
+    )
+
+    await daemon._fail_orphaned_runs(repository)
+
+    recovered = await repository.get(orphan.id)
+    assert recovered is not None
+    assert recovered.status is SessionStatus.FAILED
+
+
+async def test_a_live_terminal_session_is_left_alone() -> None:
+    repository = MemorySessionRepository()
+    live = await repository.create(
+        uuid4(), datetime.now(UTC), trigger=SessionTrigger.CLI, title="chatting"
+    )
+    done = await repository.create(
+        uuid4(), datetime.now(UTC), trigger=SessionTrigger.CRON, title="yesterday"
+    )
+    await repository.save(done.with_status(SessionStatus.FINISHED))
+
+    await daemon._fail_orphaned_runs(repository)
+
+    assert (await repository.get(live.id)).status is SessionStatus.RUNNING
+    assert (await repository.get(done.id)).status is SessionStatus.FINISHED

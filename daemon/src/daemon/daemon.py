@@ -23,7 +23,12 @@ from agenttoolkit.builtins.shell import CommandRunner
 
 from runtime import SessionRunner
 from scheduler import Cron, ScheduledJob, ScheduledRun, Scheduler, SqliteJobStore
-from storage import SessionRepository, SessionTrigger, SqliteSessionRepository
+from storage import (
+    SessionRepository,
+    SessionStatus,
+    SessionTrigger,
+    SqliteSessionRepository,
+)
 from vaulty.agent import (
     Agent,
     ContextCompacted,
@@ -64,6 +69,8 @@ async def serve(config: Config) -> None:
     config.sessions.database.parent.mkdir(parents=True, exist_ok=True)
     repository = SqliteSessionRepository(config.sessions.database)
 
+    await _fail_orphaned_runs(repository)
+
     async with open_sandbox(workspace.root, config.sandbox) as sandbox:
         run_task = _task_runner(config, workspace, sandbox, repository)
         scheduler = _build_scheduler(config.scheduler, run_task)
@@ -76,6 +83,26 @@ async def serve(config: Config) -> None:
             logger.info("Vaulty daemon running - Ctrl-C to stop")
             await _wait_for_shutdown()
     logger.info("Vaulty daemon stopped")
+
+
+async def _fail_orphaned_runs(repository: SessionRepository) -> None:
+    """Close out sessions an earlier daemon was killed in the middle of.
+
+    Such a session stays marked running forever, and nothing may resume it -
+    so a hard kill would silently lock away every run it was working on. Only
+    cron sessions are touched: this process is their only writer, while a
+    running CLI session may belong to a terminal that is open right now.
+    """
+    for session in await repository.list():
+        if session.trigger is not SessionTrigger.CRON:
+            continue
+        if session.status is not SessionStatus.RUNNING:
+            continue
+        await repository.save(session.with_status(SessionStatus.FAILED))
+        logger.warning(
+            "Session %s was left running by an earlier daemon - marked failed",
+            session.id,
+        )
 
 
 def _task_runner(
