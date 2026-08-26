@@ -56,13 +56,3 @@ class ReviewComment(BaseModel):
     line: int | None = None
     html_url: str
     created_at: datetime
-
-
-class IssueComment(BaseModel):
-    """A top-level conversation comment on the PR (not tied to a diff line)."""
-
-    id: int
-    user: User
-    body: str
-    html_url: str
-    created_at: datetime

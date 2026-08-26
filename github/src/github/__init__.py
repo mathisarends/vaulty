@@ -1,7 +1,6 @@
 from .client import GitHubClient
 from .credentials import GitHubCredentials
 from .models import (
-    IssueComment,
     PullRequest,
     PullRequestState,
     Review,
@@ -13,7 +12,6 @@ from .models import (
 __all__ = [
     "GitHubClient",
     "GitHubCredentials",
-    "IssueComment",
     "PullRequest",
     "PullRequestState",
     "Review",

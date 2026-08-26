@@ -1,5 +1,4 @@
 import httpx
-import pytest
 
 from github import GitHubClient, GitHubCredentials
 
@@ -75,19 +74,12 @@ async def test_list_reviews_follows_pagination():
     assert reviews[1].state == "APPROVED"
 
 
-@pytest.mark.parametrize(
-    ("namespace_name", "path"),
-    [
-        ("review_comments", "/repos/mathisarends/vault/pulls/1/comments"),
-        ("issue_comments", "/repos/mathisarends/vault/issues/1/comments"),
-    ],
-)
-async def test_comment_listings_hit_expected_endpoint(namespace_name, path):
+async def test_review_comments_hit_expected_endpoint():
     def handle(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == path
+        assert request.url.path == "/repos/mathisarends/vault/pulls/1/comments"
         return httpx.Response(200, json=[])
 
     async with _client(httpx.MockTransport(handle)) as client:
-        result = await getattr(client, namespace_name).list(1)
+        result = await client.review_comments.list(1)
 
     assert result == []

@@ -4,7 +4,7 @@ from typing import Self
 import httpx
 
 from github.credentials import GitHubCredentials
-from github.namespaces import IssueComments, PullRequests, ReviewComments, Reviews
+from github.namespaces import PullRequests, ReviewComments, Reviews
 
 _API_BASE_URL = "https://api.github.com"
 _API_VERSION = "2022-11-28"
@@ -14,7 +14,7 @@ class GitHubClient:
     """Minimal async client for reading pull request state.
 
     Only covers what's needed to poll a PR: its status, its reviews, and its
-    comments (inline review comments and general conversation comments).
+    inline review comments.
     """
 
     def __init__(
@@ -44,7 +44,6 @@ class GitHubClient:
         self.pulls = PullRequests(self)
         self.reviews = Reviews(self)
         self.review_comments = ReviewComments(self)
-        self.issue_comments = IssueComments(self)
 
     async def __aenter__(self) -> Self:
         return self

@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import httpx
 from pydantic import BaseModel
 
-from github.models import IssueComment, PullRequest, Review, ReviewComment
+from github.models import PullRequest, Review, ReviewComment
 
 if TYPE_CHECKING:
     from github.client import GitHubClient
@@ -61,12 +61,4 @@ class ReviewComments(_Namespace):
         return await self._paginate(
             f"/repos/{self._owner}/{self._repo}/pulls/{number}/comments",
             ReviewComment,
-        )
-
-
-class IssueComments(_Namespace):
-    async def list(self, number: int) -> list[IssueComment]:
-        return await self._paginate(
-            f"/repos/{self._owner}/{self._repo}/issues/{number}/comments",
-            IssueComment,
         )
