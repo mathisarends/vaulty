@@ -4,9 +4,10 @@ Async storage for agent conversation sessions, typed as a normal LLM
 chat: `UserMessage`, `AssistantMessage` (with `tool_calls`), and
 `ToolCallMessage` (a tool's result).
 
-`Session` is an immutable aggregate: `.append(message)` returns a new
-`Session` with the message added, and `save()` persists whatever the
-session currently holds (title and messages) in one shot.
+`Session` is an immutable aggregate: `.append(message)`, `.with_title(...)`
+and `.with_status(...)` each return a new `Session`, and `save()` persists
+whatever the session currently holds (title, status and messages) in one
+shot.
 
 ```python
 repository = SqliteSessionRepository(db_path)
@@ -36,6 +37,9 @@ recent = await repository.list(limit=20)  # most recently created first
   `create` registers a session (with its trigger, title, and creation time)
   and returns it; `save` raises `KeyError` if the session doesn't exist yet.
 - `SessionTrigger` (`CRON` | `CLI`) records what started the session.
+- `SessionStatus` (`RUNNING` | `FINISHED` | `FAILED`) records whether an
+  agent still owns it. Sessions start `RUNNING`; a frontend must not resume
+  one that still is, or two agents would append to the same history.
 - `MemorySessionRepository` — for tests/ephemeral processes.
 - `SqliteSessionRepository` — for durable storage. Serializes the three
   message types itself, so no host-provided codec is needed.
@@ -43,4 +47,6 @@ recent = await repository.list(limit=20)  # most recently created first
 ## Dependencies
 
 None beyond the standard library for `MemorySessionRepository`;
-`SqliteSessionRepository` needs `aiosqlite`.
+`SqliteSessionRepository` needs `aiosqlite`. It runs in WAL mode so the CLI
+and the daemon can hold the same database open without readers blocking on
+the other process's writes.

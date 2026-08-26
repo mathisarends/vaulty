@@ -7,6 +7,7 @@ import pytest
 
 from storage import (
     AssistantMessage,
+    SessionStatus,
     SessionTrigger,
     SqliteSessionRepository,
     ToolCall,
@@ -84,5 +85,25 @@ def test_save_without_create_raises(tmp_path: Path) -> None:
 
         with pytest.raises(KeyError, match="does not exist"):
             await repository.save(session)
+
+    asyncio.run(scenario())
+
+
+def test_status_starts_running_and_survives_save(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        database = tmp_path / "sessions.db"
+        id = uuid4()
+
+        repository = SqliteSessionRepository(database)
+        session = await repository.create(
+            id, datetime.now(UTC), trigger=SessionTrigger.CRON
+        )
+        assert session.status is SessionStatus.RUNNING
+
+        await repository.save(session.with_status(SessionStatus.FINISHED))
+
+        reopened = await SqliteSessionRepository(database).get(id)
+        assert reopened is not None
+        assert reopened.status is SessionStatus.FINISHED
 
     asyncio.run(scenario())

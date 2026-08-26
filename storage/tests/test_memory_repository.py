@@ -7,6 +7,7 @@ import pytest
 from storage import (
     AssistantMessage,
     MemorySessionRepository,
+    SessionStatus,
     SessionTrigger,
     UserMessage,
 )
@@ -83,5 +84,27 @@ def test_list_orders_by_created_at_desc_and_respects_limit() -> None:
 
         assert await repository.list() == (newer, older)
         assert await repository.list(limit=1) == (newer,)
+
+    asyncio.run(scenario())
+
+
+def test_status_and_title_updates_round_trip() -> None:
+    async def scenario() -> None:
+        repository = MemorySessionRepository()
+        id = uuid4()
+        session = await repository.create(
+            id, datetime.now(UTC), trigger=SessionTrigger.CLI
+        )
+        assert session.status is SessionStatus.RUNNING
+        assert session.title is None
+
+        await repository.save(
+            session.with_title("Tend the vault").with_status(SessionStatus.FAILED)
+        )
+
+        stored = await repository.get(id)
+        assert stored is not None
+        assert stored.title == "Tend the vault"
+        assert stored.status is SessionStatus.FAILED
 
     asyncio.run(scenario())

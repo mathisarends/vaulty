@@ -12,6 +12,7 @@ from storage.models import (
     AssistantMessage,
     ChatMessage,
     Session,
+    SessionStatus,
     SessionTrigger,
     ToolCall,
     ToolCallMessage,
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     title TEXT,
     trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
     created_at TEXT NOT NULL
 )
 """
@@ -54,8 +56,10 @@ class SqliteSessionRepository(SessionRepository):
         trigger: SessionTrigger,
         title: str | None = None,
     ) -> Session:
+        session = Session(id=id, created_at=created_at, trigger=trigger, title=title)
         query = (
-            "INSERT INTO sessions (id, title, trigger, created_at) VALUES (?, ?, ?, ?)"
+            "INSERT INTO sessions (id, title, trigger, status, created_at) "
+            "VALUES (?, ?, ?, ?, ?)"
         )
         async with self._connection() as connection:
             try:
@@ -65,20 +69,23 @@ class SqliteSessionRepository(SessionRepository):
                         str(id),
                         title,
                         trigger,
+                        session.status,
                         created_at.astimezone(UTC).isoformat(),
                     ),
                 )
                 await connection.commit()
             except aiosqlite.IntegrityError as error:
                 raise ValueError(f"Session {id!r} already exists") from error
-        return Session(id=id, created_at=created_at, trigger=trigger, title=title)
+        return session
 
     async def save(self, session: Session) -> None:
         async with self._connection() as connection:
             cursor = await connection.execute(
-                "UPDATE sessions SET title = ?, created_at = ? WHERE id = ?",
+                "UPDATE sessions SET title = ?, status = ?, created_at = ? "
+                "WHERE id = ?",
                 (
                     session.title,
+                    session.status,
                     session.created_at.astimezone(UTC).isoformat(),
                     str(session.id),
                 ),
@@ -109,7 +116,7 @@ class SqliteSessionRepository(SessionRepository):
     async def get(self, id: UUID) -> Session | None:
         async with self._connection() as connection:
             cursor = await connection.execute(
-                "SELECT title, trigger, created_at FROM sessions WHERE id = ?",
+                "SELECT title, trigger, status, created_at FROM sessions WHERE id = ?",
                 (str(id),),
             )
             row = await cursor.fetchone()
@@ -120,7 +127,7 @@ class SqliteSessionRepository(SessionRepository):
 
     async def list(self, *, limit: int | None = None) -> tuple[Session, ...]:
         query = (
-            "SELECT id, title, trigger, created_at FROM sessions "
+            "SELECT id, title, trigger, status, created_at FROM sessions "
             "ORDER BY created_at DESC, id DESC"
         )
         params: tuple[int, ...] = ()
@@ -167,6 +174,9 @@ class SqliteSessionRepository(SessionRepository):
     async def _connection(self) -> AsyncGenerator[aiosqlite.Connection]:
         async with aiosqlite.connect(self._database) as connection:
             connection.row_factory = aiosqlite.Row
+            # The CLI and the daemon both hold this database open, so readers
+            # must not block on the other process's writes.
+            await connection.execute("PRAGMA journal_mode = WAL")
             await connection.execute("PRAGMA busy_timeout = 5000")
             await connection.execute(_CREATE_SESSIONS_TABLE)
             await connection.execute(_CREATE_MESSAGES_TABLE)
@@ -182,6 +192,7 @@ def _build_session(
         id=id,
         title=cast(str | None, row["title"]),
         trigger=SessionTrigger(row["trigger"]),
+        status=SessionStatus(row["status"]),
         created_at=datetime.fromisoformat(cast(str, row["created_at"])),
         messages=messages,
     )
